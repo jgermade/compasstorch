@@ -1,0 +1,145 @@
+name: release
+
+# Sube la versión, compila con build.yml y publica una release de GitHub con
+# el APK y el IPA adjuntos.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Parte de la versión que sube
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Subir la versión
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+      sha: ${{ steps.bump.outputs.sha }}
+      notes: ${{ steps.bump.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calcular y publicar la nueva versión
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+
+          # pubspec guarda la versión como `nombre+código`, p. ej. 1.2.3+7.
+          current=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -1)
+          name=${current%%+*}
+          code=${current##*+}
+          IFS=. read -r major minor patch <<< "$name"
+
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+            *) echo "Bump desconocido: $BUMP" >&2; exit 1 ;;
+          esac
+
+          version="$major.$minor.$patch"
+          tag="v$version"
+          # El código de compilación sube siempre: las tiendas lo exigen.
+          new="$version+$((code + 1))"
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "La etiqueta $tag ya existe." >&2
+            exit 1
+          fi
+
+          # Notas: los commits desde la etiqueta anterior, si la hay.
+          previous=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -n "$previous" ]; then
+            notes=$(git log --no-merges --pretty=format:'- %s' "$previous..HEAD")
+          else
+            notes=$(git log --no-merges --pretty=format:'- %s')
+          fi
+
+          sed -i "s/^version:.*/version: $new/" pubspec.yaml
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pubspec.yaml
+          git commit -m "Versión $version"
+          git tag "$tag"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "$tag"
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "notes<<NOTES_EOF"
+            echo "$notes"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Compilar
+    needs: bump
+    # Compila el commit que acaba de subir la versión, no el que disparó el
+    # workflow.
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+
+  publish:
+    name: Publicar la release
+    needs: [bump, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ipa
+          path: artifacts
+
+      - name: Nombrar los binarios con la versión
+        env:
+          VERSION: ${{ needs.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          mv artifacts/app-release.apk "artifacts/compasstorch-$VERSION.apk"
+          mv artifacts/app-release-unsigned.ipa \
+            "artifacts/compasstorch-$VERSION-unsigned.ipa"
+          ls -l artifacts
+
+      - name: Crear la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.bump.outputs.tag }}
+          VERSION: ${{ needs.bump.outputs.version }}
+          NOTES: ${{ needs.bump.outputs.notes }}
+        run: |
+          set -euo pipefail
+          {
+            echo "$NOTES"
+            echo
+            echo '---'
+            echo
+            echo 'El APK va firmado con la clave de depuración: se instala a mano,'
+            echo 'pero no sirve para publicar en Google Play. El IPA no está firmado'
+            echo 'y hay que volver a firmarlo antes de instalarlo.'
+          } > notes.md
+
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$VERSION" \
+            --notes-file notes.md \
+            artifacts/*

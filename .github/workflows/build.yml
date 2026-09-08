@@ -1,0 +1,117 @@
+name: build
+
+# Comprueba el proyecto y genera los binarios. release.yml reutiliza este
+# mismo workflow con `workflow_call` para no duplicar los pasos de compilación.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+    inputs:
+      ref:
+        description: >-
+          Commit, etiqueta o rama a compilar. Vacío usa la referencia que ha
+          disparado el workflow.
+        type: string
+        required: false
+        default: ''
+
+env:
+  # Versión con la que se ha desarrollado el proyecto. Al subirla hay que
+  # comprobar que sigue cumpliendo el `environment.sdk` de pubspec.yaml.
+  FLUTTER_VERSION: '3.47.2'
+  JAVA_VERSION: '17'
+
+jobs:
+  test:
+    name: Análisis y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Comprobar el formato
+        run: dart format --output=none --set-exit-if-changed .
+
+      - run: flutter analyze
+
+      - run: flutter test
+
+  android:
+    name: APK de Android
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Sin keystore propio, Gradle firma la release con la clave de depuración
+      # (así viene la plantilla de Flutter): el APK se instala a mano, pero no
+      # sirve para publicar en Google Play.
+      - run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  ios:
+    name: IPA de iOS
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Sin certificado de Apple no se puede firmar en CI. El .ipa resultante
+      # sirve para inspeccionarlo o para volver a firmarlo, no para instalarlo
+      # directamente en un dispositivo.
+      - run: flutter build ios --release --no-codesign
+
+      - name: Empaquetar el .app como .ipa
+        run: |
+          set -euo pipefail
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -qry app-release-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: build/ios/ipa/app-release-unsigned.ipa
+          if-no-files-found: error

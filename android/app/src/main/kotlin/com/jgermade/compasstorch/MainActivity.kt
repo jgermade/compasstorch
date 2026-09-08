@@ -1,0 +1,5 @@
+package com.jgermade.compasstorch
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
