@@ -1,4 +1,5 @@
 import 'package:compasstorch/controllers/controls_controller.dart';
+import 'package:compasstorch/services/haptics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_device_services.dart';
@@ -25,7 +26,7 @@ void main() {
     expect(services.calls, [
       'torchCapabilities',
       'setTorch(true, 1.00)',
-      'hapticPulse(true)',
+      'haptic(turnedOn)',
     ]);
   });
 
@@ -102,19 +103,29 @@ void main() {
   );
 
   group('vibración háptica', () {
+    test(
+      'el tic de cambio de banda es más suave que el de encendido',
+      () async {
+        await controller.setTorch(enabled: true);
+        await controller.pulseZoneChange();
+
+        expect(services.haptics, [HapticCue.turnedOn, HapticCue.zoneChanged]);
+      },
+    );
+
     test('la linterna vibra al encender y al apagar', () async {
       await controller.setTorch(enabled: true);
-      expect(services.haptics, [true]);
+      expect(services.haptics, [HapticCue.turnedOn]);
 
       await controller.setTorch(enabled: false);
-      expect(services.haptics, [true, false]);
+      expect(services.haptics, [HapticCue.turnedOn, HapticCue.turnedOff]);
     });
 
     test('el modo faro vibra al activar y al desactivar', () async {
       await controller.setBeacon(enabled: true);
       await controller.setBeacon(enabled: false);
 
-      expect(services.haptics, [true, false]);
+      expect(services.haptics, [HapticCue.turnedOn, HapticCue.turnedOff]);
     });
 
     test('sin flash no vibra: no ha llegado a encenderse', () async {
@@ -129,7 +140,7 @@ void main() {
       await controller.setTorch(enabled: true);
       await controller.setTorch(enabled: true);
 
-      expect(services.haptics, [true]);
+      expect(services.haptics, [HapticCue.turnedOn]);
     });
 
     test('el modo faro vibra aunque el brillo no se deje ajustar', () async {
@@ -138,7 +149,7 @@ void main() {
       await controller.setBeacon(enabled: true);
 
       expect(controller.beaconOn, isTrue);
-      expect(services.haptics, [true]);
+      expect(services.haptics, [HapticCue.turnedOn]);
     });
   });
 

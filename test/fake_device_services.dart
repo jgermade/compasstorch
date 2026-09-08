@@ -1,4 +1,5 @@
 import 'package:compasstorch/services/device_services.dart';
+import 'package:compasstorch/services/haptics.dart';
 import 'package:compasstorch/services/torch_channel.dart';
 
 /// Doble de [DeviceServices] para los tests: registra lo que se le pide y
@@ -21,8 +22,12 @@ class FakeDeviceServices implements DeviceServices {
   double? torchIntensity;
   double? screenBrightness;
 
-  /// Pulsos hápticos emitidos: `true` al activar, `false` al desactivar.
-  final List<bool> haptics = [];
+  /// Avisos hápticos emitidos, en orden.
+  final List<HapticCue> haptics = [];
+
+  /// Solo los avisos de encendido y apagado.
+  List<HapticCue> get powerHaptics =>
+      haptics.where((cue) => cue != HapticCue.zoneChanged).toList();
 
   /// Todos los niveles de intensidad que han llegado al "dispositivo".
   final List<double> torchLevels = [];
@@ -69,8 +74,8 @@ class FakeDeviceServices implements DeviceServices {
   }
 
   @override
-  Future<void> hapticPulse({required bool activating}) async {
-    calls.add('hapticPulse($activating)');
-    haptics.add(activating);
+  Future<void> haptic(HapticCue cue) async {
+    calls.add('haptic(${cue.name})');
+    haptics.add(cue);
   }
 }

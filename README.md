@@ -17,18 +17,26 @@ La pantalla se divide en dos mitades:
   El cambio lo decide la inclinación del plano del teléfono (`tilt`), con una
   banda muerta entre 35° y 55° para que la vista no oscile en el límite.
 
-- **Abajo, el mando.** Un pulsador analógico que descansa en la esquina
-  inferior derecha y se arrastra en dos ejes independientes:
-  - **Hacia arriba** → enciende la linterna (flash).
-  - **Hacia la izquierda** → activa el **modo faro**: tema claro, pantalla que
-    no se apaga sola y brillo al máximo.
-  - **En diagonal**, hacia la esquina superior izquierda, quedan las dos
-    activas. Devolver el pulsador al reposo las apaga.
+- **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
+  superficie de plástico rugoso con un círculo grabado que hace de marca. Dos
+  líneas blancas cruzan el control, fijas al marco, y delimitan un cuadro de
+  reposo en la esquina inferior derecha donde la marca descansa.
 
-  La posición no es solo encendido y apagado: **cuanto más lejos del reposo,
-  más luz**. El pulsador se queda donde se suelte, y solo vuelve a la esquina
-  si cae por debajo del umbral de activación. También se puede tocar
-  directamente el punto al que se quiere llevar.
+  - Pasar la marca **por encima de la línea horizontal** enciende la linterna
+    **al 100 %**. Si el dispositivo permite graduarla, seguir subiendo la
+    atenúa, hasta el mínimo en la banda del borde superior.
+  - Pasarla **a la izquierda de la vertical** activa el **modo faro** (tema
+    claro y pantalla que no se apaga) con el brillo al mínimo. Seguir hacia la
+    izquierda lo sube, hasta el 100 % en la banda translúcida del borde.
+  - Los dos ejes son independientes: en diagonal quedan las dos cosas activas.
+
+  Al soltar, la marca se queda donde esté, salvo en tres sitios: dentro del
+  cuadro de reposo vuelve al centro, y dentro de una banda de iluminación se
+  centra en ella. También se puede tocar directamente el punto de destino.
+
+  El sentido de la gradación está invertido entre los dos a propósito: de una
+  linterna se quiere todo el brillo nada más encenderla, mientras que del faro
+  se quiere ir subiendo.
 
   Cada encendido y cada apagado se confirma con una **vibración háptica**: un
   golpe más marcado al activar y otro más suave al desactivar, para notar el
@@ -38,6 +46,20 @@ La pantalla se divide en dos mitades:
 La aplicación usa **tema oscuro** siempre, salvo mientras el modo faro está
 activo, que es cuando pasa a blanco para que la pantalla dé el máximo de luz.
 
+## Avisos hápticos
+
+Tres intensidades, en jerarquía, para poder distinguirlos sin mirar:
+
+| Aviso | Cuándo |
+| --- | --- |
+| Fuerte (`heavyImpact`) | Un control se enciende |
+| Medio (`mediumImpact`) | Un control se apaga |
+| Tic (`selectionClick`) | La marca entra o sale de una banda de iluminación |
+
+Cruzar una línea produce solo el aviso fuerte, no los dos: el salto entre el
+reposo y una banda no cuenta como cambio de banda. Y mover la marca dentro de
+un mismo tramo no vibra, o el mando zumbaría durante todo el arrastre.
+
 ## Regulación de la luz
 
 Los dos ejes son analógicos, pero por razones distintas:
@@ -46,7 +68,7 @@ Los dos ejes son analógicos, pero por razones distintas:
 ventana, así que se ajusta con cualquier valor en todas las versiones de Android
 e iOS. El nivel del mando se traduce a brillo con un **suelo del 30 %**, a
 propósito: con la pantalla apagada del todo no se vería el mando para volver a
-subirla.
+subirla. El modo claro y la inhibición del apagado van siempre juntos.
 
 **La intensidad del flash** depende del dispositivo:
 
@@ -177,9 +199,14 @@ flutter run
 
 Los tests cubren el cálculo de la orientación con vectores conocidos (teléfono
 tumbado y levantado apuntando a cada rumbo, caída libre, campo alineado con la
-gravedad), los gestos del mando en sus dos ejes analógicos, y la lógica de los
-controles —vibración, gradación, suelo de brillo y coalescencia de envíos— con
-un doble de `DeviceServices`, sin tocar los canales de plataforma.
+gravedad), la geometría del mando en `PadGeometry` (bandas, gradación invertida,
+ida y vuelta entre posición y nivel, y dónde se queda la marca al soltarla), los
+gestos sobre el mando, y la lógica de los controles —jerarquía de vibraciones,
+gradación, suelo de brillo y coalescencia de envíos— con un doble de
+`DeviceServices`, sin tocar los canales de plataforma.
+
+`PadGeometry` está aparte del widget justamente para eso: toda la geometría es
+una función pura, comprobable sin simular gestos.
 
 El código nativo (Kotlin y Swift) no tiene pruebas propias: lo verifica la
 compilación en CI. **Nada de esto se ha ejecutado todavía en un teléfono real**,

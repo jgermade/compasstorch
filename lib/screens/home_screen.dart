@@ -109,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             .setTorch(enabled: enabled, intensity: level),
                         onBeaconChanged: (enabled, level) => widget.controller
                             .setBeacon(enabled: enabled, level: level),
+                        onZoneChanged: widget.controller.pulseZoneChange,
                       ),
                     ),
                   ),

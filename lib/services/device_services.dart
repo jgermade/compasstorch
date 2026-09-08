@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'haptics.dart';
 import 'torch_channel.dart';
 
 /// Acceso a las capacidades del dispositivo que usa la aplicación.
@@ -25,10 +26,9 @@ abstract class DeviceServices {
   /// Impide (o vuelve a permitir) que la pantalla se apague sola.
   Future<void> setKeepScreenOn({required bool enabled});
 
-  /// Golpe háptico que acompaña al encendido o apagado de un control. El
-  /// pulso de activación es más marcado que el de apagado, para poder
-  /// distinguirlos sin mirar la pantalla.
-  Future<void> hapticPulse({required bool activating});
+  /// Aviso háptico. Cada [HapticCue] tiene su propia fuerza, para poder
+  /// distinguir los avisos sin mirar la pantalla.
+  Future<void> haptic(HapticCue cue);
 }
 
 /// Implementación real sobre los plugins de plataforma.
@@ -59,9 +59,11 @@ class PlatformDeviceServices implements DeviceServices {
   }
 
   @override
-  Future<void> hapticPulse({required bool activating}) {
-    return activating
-        ? HapticFeedback.mediumImpact()
-        : HapticFeedback.lightImpact();
+  Future<void> haptic(HapticCue cue) {
+    return switch (cue) {
+      HapticCue.turnedOn => HapticFeedback.heavyImpact(),
+      HapticCue.turnedOff => HapticFeedback.mediumImpact(),
+      HapticCue.zoneChanged => HapticFeedback.selectionClick(),
+    };
   }
 }

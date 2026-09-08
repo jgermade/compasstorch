@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../services/device_services.dart';
+import '../services/haptics.dart';
 import '../services/torch_channel.dart';
 
 /// Manda al canal nativo el último valor pedido, sin encolar los intermedios.
@@ -144,7 +145,7 @@ class ControlsController extends ChangeNotifier {
 
     // La vibración confirma solo lo que de verdad ha ocurrido: si el flash
     // falla, no se nota nada.
-    await _pulse(activating: enabled);
+    await _pulse(enabled ? HapticCue.turnedOn : HapticCue.turnedOff);
   }
 
   /// Cambia la intensidad con la linterna ya encendida.
@@ -178,7 +179,7 @@ class ControlsController extends ChangeNotifier {
 
     // El modo faro cambia el tema pase lo que pase con el brillo, así que el
     // golpe háptico va siempre.
-    await _pulse(activating: enabled);
+    await _pulse(enabled ? HapticCue.turnedOn : HapticCue.turnedOff);
 
     try {
       await _services.setBrightness(
@@ -241,11 +242,15 @@ class ControlsController extends ChangeNotifier {
   double _screenFor(double level) =>
       minBeaconBrightness + level * (1 - minBeaconBrightness);
 
+  /// Tic al entrar o salir de una banda de iluminación, mucho más suave que el
+  /// golpe de encendido.
+  Future<void> pulseZoneChange() => _pulse(HapticCue.zoneChanged);
+
   /// Vibración de confirmación. Un dispositivo sin motor háptico no es motivo
   /// para dar por fallado el cambio.
-  Future<void> _pulse({required bool activating}) async {
+  Future<void> _pulse(HapticCue cue) async {
     try {
-      await _services.hapticPulse(activating: activating);
+      await _services.haptic(cue);
     } catch (error) {
       // Sin háptica: el control ya ha cambiado igualmente.
     }
