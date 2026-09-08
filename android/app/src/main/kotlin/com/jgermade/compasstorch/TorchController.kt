@@ -56,9 +56,10 @@ class TorchController(context: Context, messenger: BinaryMessenger) :
             if (id == null) {
                 result.success(mapOf("available" to false, "gradual" to false))
             } else {
-                result.success(
-                    mapOf("available" to true, "gradual" to maxLevel(id) > 1)
-                )
+                // Los paréntesis son obligatorios: el infijo `to` liga más
+                // fuerte que `>`, así que sin ellos se compara el Pair.
+                val gradual = maxLevel(id) > 1
+                result.success(mapOf("available" to true, "gradual" to gradual))
             }
         } catch (e: CameraAccessException) {
             result.error(ERROR_UNAVAILABLE, e.message, null)

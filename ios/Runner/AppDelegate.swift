@@ -59,11 +59,11 @@ final class TorchController {
       defer { device.unlockForConfiguration() }
 
       if enabled {
-        // El nivel nunca puede ser 0: eso lanzaría una excepción en lugar de
-        // apagar la linterna.
-        let level = min(
-          max(Float(intensity), AVCaptureDevice.minAvailableTorchLevel),
-          AVCaptureDevice.maxAvailableTorchLevel)
+        // `setTorchModeOn(level:)` admite el intervalo (0, 1]: un nivel de 0
+        // lanzaría una excepción en vez de apagar la linterna, y el máximo es
+        // 1. Se acotan con literales a propósito, porque `AVCaptureDevice` no
+        // expone ninguna constante para el mínimo.
+        let level = min(max(Float(intensity), 0.01), 1)
         try device.setTorchModeOn(level: level)
       } else {
         device.torchMode = .off
