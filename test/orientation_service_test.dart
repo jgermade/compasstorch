@@ -104,6 +104,36 @@ void main() {
     });
   });
 
+  group('nivel', () {
+    test('tumbado del todo, el nivel está centrado', () {
+      final reading = readingFromVectors(
+        gravity: const [0, 0, g],
+        magneticField: const [0, hField, -vField],
+      )!;
+
+      expect(reading.levelX, closeTo(0, 0.001));
+      expect(reading.levelY, closeTo(0, 0.001));
+    });
+
+    test('el nivel señala el lado que se levanta', () {
+      // Lado derecho arriba: la componente X de la vertical es positiva.
+      final right = readingFromVectors(
+        gravity: const [g * 0.5, 0, g * 0.866],
+        magneticField: const [0, hField, -vField],
+      )!;
+      expect(right.levelX, closeTo(0.5, 0.01));
+      expect(right.levelY, closeTo(0, 0.01));
+
+      // Borde de arriba levantado: le toca a la componente Y.
+      final top = readingFromVectors(
+        gravity: const [0, g * 0.5, g * 0.866],
+        magneticField: const [0, hField, -vField],
+      )!;
+      expect(top.levelY, closeTo(0.5, 0.01));
+      expect(top.levelX, closeTo(0, 0.01));
+    });
+  });
+
   test('la inclinación crece al levantar el teléfono', () {
     // 45°: la gravedad se reparte entre los ejes Y y Z.
     final reading = readingFromVectors(

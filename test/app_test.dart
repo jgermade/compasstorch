@@ -17,13 +17,21 @@ class FakeOrientationService implements OrientationService {
   @override
   Stream<OrientationReading> get readings => _controller.stream;
 
-  void emit({required double tilt, double heading = 0}) {
+  void emit({
+    required double tilt,
+    double heading = 0,
+    double elevation = 0,
+    double levelX = 0,
+    double levelY = 0,
+  }) {
     _controller.add(
       OrientationReading(
         headingTop: heading,
         headingCamera: heading,
-        elevation: 0,
+        elevation: elevation,
         tilt: tilt,
+        levelX: levelX,
+        levelY: levelY,
       ),
     );
   }
@@ -94,6 +102,43 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(HeadingRibbon), findsOneWidget);
       expect(find.byType(CompassDial), findsNothing);
+    });
+
+    testWidgets('la barra de arriba lleva los mandos a las esquinas', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      orientation.emit(tilt: 5);
+      await tester.pumpAndSettle();
+
+      final beacon = tester.getCenter(find.byIcon(Icons.wb_sunny_rounded));
+      final view = tester.getCenter(find.byIcon(Icons.explore_rounded));
+      final torch = tester.getCenter(find.byIcon(Icons.flashlight_on_rounded));
+      final width = tester.getSize(find.byType(MaterialApp)).width;
+
+      // Faro a la izquierda, linterna a la derecha y la vista en medio.
+      expect(beacon.dx, lessThan(view.dx));
+      expect(view.dx, lessThan(torch.dx));
+      expect(view.dx, closeTo(width / 2, 1));
+      // El nombre de la vista ya no se escribe: queda solo el icono.
+      expect(find.textContaining('compass'), findsNothing);
+    });
+
+    testWidgets('la burbuja de nivel avisa cuando el teléfono está plano', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpApp(tester);
+
+      orientation.emit(tilt: 1, levelX: 0.002, levelY: 0.002);
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Phone level'), findsOneWidget);
+
+      orientation.emit(tilt: 8, levelX: 0.12, levelY: 0.02);
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Phone tilted'), findsOneWidget);
+
+      semantics.dispose();
     });
 
     testWidgets('el modo faro pasa a tema claro y sube el brillo', (

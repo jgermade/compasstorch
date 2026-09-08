@@ -35,6 +35,20 @@ class _LatestValueSender {
   }
 }
 
+/// Motivo del último fallo de un control. El texto que ve la persona depende
+/// del idioma, así que el controlador solo dice qué ha pasado y la pantalla se
+/// encarga de traducirlo.
+enum ControlsError {
+  /// No se ha podido encender la linterna: sin flash o lo usa otra aplicación.
+  torchUnavailable,
+
+  /// No se ha podido apagar la linterna.
+  torchOffFailed,
+
+  /// El modo faro no ha podido ajustar el brillo o el bloqueo de pantalla.
+  beaconPartial,
+}
+
 /// Estado de los dos controles del mando deslizable.
 ///
 /// - Eje vertical: la linterna, con intensidad regulable donde el dispositivo
@@ -65,7 +79,7 @@ class ControlsController extends ChangeNotifier {
   bool _beaconOn = false;
   double _torchIntensity = 1;
   double _beaconLevel = 1;
-  String? _errorMessage;
+  ControlsError? _error;
   bool _disposed = false;
 
   TorchCapabilities _capabilities = TorchCapabilities.none;
@@ -85,12 +99,12 @@ class ControlsController extends ChangeNotifier {
   bool get torchIsGradual => _capabilities.gradual;
 
   /// Último error de plataforma sin mostrar. Se consume con [takeError].
-  String? get errorMessage => _errorMessage;
+  ControlsError? get error => _error;
 
   /// Devuelve el error pendiente y lo borra, para no repetir el aviso.
-  String? takeError() {
-    final error = _errorMessage;
-    _errorMessage = null;
+  ControlsError? takeError() {
+    final error = _error;
+    _error = null;
     return error;
   }
 
@@ -135,10 +149,9 @@ class ControlsController extends ChangeNotifier {
       await _services.setTorch(enabled: enabled, intensity: _torchIntensity);
     } catch (error) {
       _torchOn = !enabled;
-      _errorMessage = enabled
-          ? 'No se ha podido encender la linterna: este dispositivo no tiene '
-                'flash disponible o lo está usando otra aplicación.'
-          : 'No se ha podido apagar la linterna.';
+      _error = enabled
+          ? ControlsError.torchUnavailable
+          : ControlsError.torchOffFailed;
       _notify();
       return;
     }
@@ -188,9 +201,7 @@ class ControlsController extends ChangeNotifier {
       );
       await _services.setKeepScreenOn(enabled: enabled);
     } catch (error) {
-      _errorMessage =
-          'El modo faro se ha activado solo en parte: el sistema no '
-          'ha permitido ajustar el brillo o mantener la pantalla encendida.';
+      _error = ControlsError.beaconPartial;
       _notify();
     }
   }

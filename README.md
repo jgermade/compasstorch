@@ -9,13 +9,21 @@ La pantalla se divide en dos mitades:
 
 - **Arriba, la brújula.** Cambia de forma según cómo se sujete el teléfono:
   - **En horizontal** (tumbado, como se lee una brújula de verdad): rosa de los
-    vientos que gira, con la aguja marcando el norte magnético.
+    vientos que gira, con la aguja marcando el norte magnético. En el centro,
+    detrás de los grados y del rumbo, una **burbuja de nivel** se va hacia el
+    lado que se levanta; cuando el teléfono está plano se enciende el borde del
+    círculo central.
   - **En vertical** (levantado, apuntando a algo): una regla de líneas
     verticales que se desplaza con el rumbo al que apunta la parte trasera del
-    teléfono, con los grados marcados y la elevación sobre el horizonte.
+    teléfono, con los grados marcados, y a su derecha una barra vertical con la
+    **elevación sobre el horizonte**.
 
   El cambio lo decide la inclinación del plano del teléfono (`tilt`), con una
   banda muerta entre 35° y 55° para que la vista no oscile en el límite.
+
+  Encima de la brújula, en las esquinas, el estado de los dos controles: el
+  modo faro arriba a la izquierda y la linterna arriba a la derecha, cada uno
+  con su porcentaje hacia el centro. En medio, el icono de la vista activa.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
   superficie de plástico rugoso con un círculo translúcido que hace de marca.
@@ -48,6 +56,21 @@ La pantalla se divide en dos mitades:
 
 La aplicación usa **tema oscuro** siempre, salvo mientras el modo faro está
 activo, que es cuando pasa a blanco para que la pantalla dé el máximo de luz.
+
+## Idiomas
+
+La aplicación está en **castellano e inglés**, y el inglés hace de reserva
+cuando el sistema pide cualquier otro idioma. Se traducen los textos de la
+interfaz, las abreviaturas de los rumbos (`SO`/`SW`, `O`/`W`…) y lo que leen
+los lectores de pantalla.
+
+Las traducciones se escriben a mano en `lib/l10n`: una clase abstracta
+`AppStrings` con una implementación por idioma y su `LocalizationsDelegate`.
+Son pocos textos, así que no compensa generar código desde ficheros ARB. El
+inglés encabeza `supportedLocales` y por eso es el idioma al que cae
+`basicLocaleListResolution` cuando no hay coincidencia. Los mensajes de error
+de los controles no viajan como texto: `ControlsController` devuelve un
+`ControlsError` y la pantalla lo traduce al mostrarlo.
 
 ## Avisos hápticos
 
@@ -115,9 +138,10 @@ No se usa ningún plugin de brújula: la orientación se deriva del acelerómetr
 el magnetómetro (`sensors_plus`) reproduciendo el cálculo de
 `SensorManager.getRotationMatrix` de Android. Con el vector de gravedad y el del
 campo magnético se construye la matriz de rotación del dispositivo respecto al
-mundo (X = este, Y = norte magnético, Z = arriba) y de ahí salen los tres datos
-que necesita la interfaz: el rumbo del borde superior, el rumbo de la cámara
-trasera y la inclinación.
+mundo (X = este, Y = norte magnético, Z = arriba) y de ahí salen los datos que
+necesita la interfaz: el rumbo del borde superior, el rumbo de la cámara
+trasera, la inclinación, la elevación y, para la burbuja de nivel, cuánto se
+inclina el teléfono sobre cada eje de la pantalla.
 
 Ambas lecturas pasan por un filtro paso bajo para que la aguja no tiemble.
 
@@ -204,9 +228,10 @@ Los tests cubren el cálculo de la orientación con vectores conocidos (teléfon
 tumbado y levantado apuntando a cada rumbo, caída libre, campo alineado con la
 gravedad), la geometría del mando en `PadGeometry` (bandas, sentido de la
 gradación, ida y vuelta entre posición y nivel, y dónde se queda la marca al
-soltarla), los gestos sobre el mando, y la lógica de los controles —jerarquía
-de vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un
-doble de `DeviceServices`, sin tocar los canales de plataforma.
+soltarla), los gestos sobre el mando, la lógica de los controles —jerarquía de
+vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un doble
+de `DeviceServices`, sin tocar los canales de plataforma, y las traducciones,
+incluida la vuelta al inglés con un idioma sin traducir.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
 una función pura, comprobable sin simular gestos.
