@@ -26,8 +26,9 @@ class FakeDeviceServices implements DeviceServices {
   final List<HapticCue> haptics = [];
 
   /// Solo los avisos de encendido y apagado.
-  List<HapticCue> get powerHaptics =>
-      haptics.where((cue) => cue != HapticCue.zoneChanged).toList();
+  List<HapticCue> get powerHaptics => haptics
+      .where((cue) => cue == HapticCue.turnedOn || cue == HapticCue.turnedOff)
+      .toList();
 
   /// Todos los niveles de intensidad que han llegado al "dispositivo".
   final List<double> torchLevels = [];

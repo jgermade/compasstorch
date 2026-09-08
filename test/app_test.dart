@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:compasstorch/main.dart';
 import 'package:compasstorch/screens/home_screen.dart';
+import 'package:compasstorch/services/haptics.dart';
 import 'package:compasstorch/services/orientation_service.dart';
 import 'package:compasstorch/widgets/compass_dial.dart';
 import 'package:compasstorch/widgets/control_pad.dart';
@@ -139,6 +140,49 @@ void main() {
       expect(find.bySemanticsLabel('Phone tilted'), findsOneWidget);
 
       semantics.dispose();
+    });
+
+    testWidgets('centrar la burbuja se confirma con un toque háptico', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      orientation.emit(tilt: 8, levelX: 0.10, levelY: 0);
+      await tester.pumpAndSettle();
+      expect(services.haptics, isEmpty);
+
+      orientation.emit(tilt: 1, levelX: 0.005, levelY: 0);
+      await tester.pumpAndSettle();
+      expect(services.haptics, [HapticCue.levelled]);
+
+      // Mientras siga nivelada no se repite, ni siquiera con el temblor de la
+      // mano rondando el umbral.
+      orientation.emit(tilt: 1, levelX: 0.001, levelY: 0.002);
+      orientation.emit(tilt: 2, levelX: 0.025, levelY: 0);
+      await tester.pumpAndSettle();
+      expect(services.haptics, [HapticCue.levelled]);
+
+      // Al salir del todo y volver, sí avisa otra vez.
+      orientation.emit(tilt: 8, levelX: 0.10, levelY: 0);
+      await tester.pumpAndSettle();
+      orientation.emit(tilt: 1, levelX: 0.004, levelY: 0);
+      await tester.pumpAndSettle();
+      expect(services.haptics, [HapticCue.levelled, HapticCue.levelled]);
+    });
+
+    testWidgets('al arrancar con el teléfono ya plano no vibra sola', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      // Todavía sin rumbo: se ve el aviso de calibración, no la burbuja.
+      expect(services.haptics, isEmpty);
+
+      // Y la primera lectura, con el teléfono plano encima de la mesa, no
+      // cuenta como que se acabe de nivelar.
+      orientation.emit(tilt: 1, levelX: 0.003, levelY: 0.001);
+      await tester.pumpAndSettle();
+      expect(services.haptics, isEmpty);
     });
 
     testWidgets('el modo faro pasa a tema claro y sube el brillo', (

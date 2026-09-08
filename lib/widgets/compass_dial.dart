@@ -8,12 +8,13 @@ import 'readout.dart';
 
 /// Rosa de los vientos clásica: la carta gira y una aguja fija arriba marca el
 /// rumbo. Es la vista que se usa con el teléfono tumbado.
-class CompassDial extends StatelessWidget {
+class CompassDial extends StatefulWidget {
   const CompassDial({
     super.key,
     required this.heading,
     this.levelX = 0,
     this.levelY = 0,
+    this.onLevelled,
   });
 
   /// Rumbo magnético del borde superior del teléfono, o `null` si todavía no
@@ -21,26 +22,52 @@ class CompassDial extends StatelessWidget {
   final double? heading;
 
   /// Inclinación del teléfono sobre los ejes de la pantalla, de -1 a 1. Mueve
-  /// la burbuja de nivel del centro. Ver [OrientationReading.levelX].
+  /// la burbuja de nivel del centro.
   final double levelX;
   final double levelY;
+
+  /// La burbuja acaba de centrarse. Se avisa solo del cambio, para poder
+  /// confirmarlo con un toque háptico sin repetirlo en cada lectura.
+  final VoidCallback? onLevelled;
 
   /// Inclinación, en fracción de la vertical, que desplaza la burbuja hasta el
   /// borde: 0,15 son unos 8,5°.
   static const double levelSpan = 0.15;
 
-  /// Por debajo de esta inclinación (algo más de 1°) se da por nivelado.
+  /// Por debajo de esta inclinación (algo más de 1°) se da por nivelado, y no
+  /// deja de estarlo hasta pasar de [levelRelease]: sin esa holgura el temblor
+  /// de la mano encendería y apagaría el aviso sin parar.
   static const double levelTolerance = 0.02;
+  static const double levelRelease = 0.035;
 
-  /// El teléfono está lo bastante horizontal como para fiarse de la lectura.
-  bool get isLevel =>
-      math.sqrt(levelX * levelX + levelY * levelY) < levelTolerance;
+  @override
+  State<CompassDial> createState() => _CompassDialState();
+}
+
+class _CompassDialState extends State<CompassDial> {
+  late bool _levelled = _tiltFor(widget) < CompassDial.levelTolerance;
+
+  static double _tiltFor(CompassDial dial) {
+    return math.sqrt(dial.levelX * dial.levelX + dial.levelY * dial.levelY);
+  }
+
+  @override
+  void didUpdateWidget(CompassDial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final tilt = _tiltFor(widget);
+    final was = _levelled;
+    _levelled = was
+        ? tilt < CompassDial.levelRelease
+        : tilt < CompassDial.levelTolerance;
+    // Sin rumbo no se ve la burbuja: no hay nada que confirmar.
+    if (_levelled && !was && widget.heading != null) widget.onLevelled?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
-    final value = heading;
+    final value = widget.heading;
 
     if (value == null) {
       return const SensorPlaceholder();
@@ -64,7 +91,7 @@ class CompassDial extends StatelessWidget {
                   cardinals: strings.cardinals,
                 ),
                 Semantics(
-                  label: isLevel ? strings.levelCentered : strings.levelOff,
+                  label: _levelled ? strings.levelCentered : strings.levelOff,
                   child: CustomPaint(
                     size: Size.square(diameter),
                     painter: _HubPainter(
@@ -74,10 +101,16 @@ class CompassDial extends StatelessWidget {
                       // La burbuja se va hacia el lado que se levanta, como en
                       // un nivel de verdad: la pantalla sube por donde ella va.
                       level: Offset(
-                        (levelX / levelSpan).clamp(-1.0, 1.0),
-                        (-levelY / levelSpan).clamp(-1.0, 1.0),
+                        (widget.levelX / CompassDial.levelSpan).clamp(
+                          -1.0,
+                          1.0,
+                        ),
+                        (-widget.levelY / CompassDial.levelSpan).clamp(
+                          -1.0,
+                          1.0,
+                        ),
                       ),
-                      levelled: isLevel,
+                      levelled: _levelled,
                     ),
                   ),
                 ),

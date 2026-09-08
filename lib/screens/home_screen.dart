@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               heading: reading?.headingTop,
                               levelX: reading?.levelX ?? 0,
                               levelY: reading?.levelY ?? 0,
+                              onLevelled: widget.controller.pulseLevelled,
                             )
                           : HeadingRibbon(
                               key: const ValueKey('ribbon'),

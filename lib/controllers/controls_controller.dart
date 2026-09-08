@@ -257,6 +257,10 @@ class ControlsController extends ChangeNotifier {
   /// golpe de encendido.
   Future<void> pulseZoneChange() => _pulse(HapticCue.zoneChanged);
 
+  /// Toque al centrarse la burbuja de nivel: así se nota que el teléfono está
+  /// horizontal sin apartar la vista de lo que se está apuntando.
+  Future<void> pulseLevelled() => _pulse(HapticCue.levelled);
+
   /// Vibración de confirmación. Un dispositivo sin motor háptico no es motivo
   /// para dar por fallado el cambio.
   Future<void> _pulse(HapticCue cue) async {

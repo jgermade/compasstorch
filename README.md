@@ -12,7 +12,8 @@ La pantalla se divide en dos mitades:
     vientos que gira, con la aguja marcando el norte magnético. En el centro,
     detrás de los grados y del rumbo, una **burbuja de nivel** se va hacia el
     lado que se levanta; cuando el teléfono está plano se enciende el borde del
-    círculo central.
+    círculo central y una **vibración suave** lo confirma, para no tener que
+    mirar la pantalla mientras se nivela.
   - **En vertical** (levantado, apuntando a algo): una regla de líneas
     verticales que se desplaza con el rumbo al que apunta la parte trasera del
     teléfono, con los grados marcados, y a su derecha una barra vertical con la
@@ -80,11 +81,18 @@ Tres intensidades, en jerarquía, para poder distinguirlos sin mirar:
 | --- | --- |
 | Fuerte (`heavyImpact`) | Un control se enciende |
 | Medio (`mediumImpact`) | Un control se apaga |
+| Suave (`lightImpact`) | La burbuja de nivel se centra |
 | Tic (`selectionClick`) | La marca entra o sale de una banda de iluminación |
 
 Cruzar una línea produce solo el aviso fuerte, no los dos: el salto entre el
 reposo y una banda no cuenta como cambio de banda. Y mover la marca dentro de
 un mismo tramo no vibra, o el mando zumbaría durante todo el arrastre.
+
+Tres avisos son del mando y el cuarto de la brújula, así que no se solapan. El
+del nivel se emite solo al **entrar** en la zona nivelada, y con holgura: se
+entra por debajo de 0,02 de inclinación y no se sale hasta pasar de 0,035, o el
+pulso de la mano lo dispararía sin parar. Con el teléfono ya plano al arrancar
+no vibra: no hay ningún cambio que confirmar.
 
 ## Regulación de la luz
 
@@ -230,7 +238,8 @@ gravedad), la geometría del mando en `PadGeometry` (bandas, sentido de la
 gradación, ida y vuelta entre posición y nivel, y dónde se queda la marca al
 soltarla), los gestos sobre el mando, la lógica de los controles —jerarquía de
 vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un doble
-de `DeviceServices`, sin tocar los canales de plataforma, y las traducciones,
+de `DeviceServices`, sin tocar los canales de plataforma, el aviso háptico del
+nivel (que no se repite ni se dispara solo al arrancar) y las traducciones,
 incluida la vuelta al inglés con un idioma sin traducir.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
