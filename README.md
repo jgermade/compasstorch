@@ -212,6 +212,18 @@ gradación, suelo de brillo y coalescencia de envíos— con un doble de
 una función pura, comprobable sin simular gestos.
 
 El código nativo (Kotlin y Swift) no tiene pruebas propias: lo verifica la
-compilación en CI. **Nada de esto se ha ejecutado todavía en un teléfono real**,
+compilación en CI.
+
+## Icono
+
+El original es `CompassTorch.svg`: una brújula cuya aguja es una linterna. De
+ahí salen todos los tamaños de Android e iOS —incluidos el icono adaptativo y
+su capa monocroma para los iconos temáticos de Android 13— con:
+
+```bash
+pip install pillow cairosvg
+python3 tool/generate_app_icons.py
+```
+ **Nada de esto se ha ejecutado todavía en un teléfono real**,
 así que el comportamiento del flash y del brillo sobre hardware está sin
 confirmar.
