@@ -77,7 +77,7 @@ class _CompassTorchAppState extends State<CompassTorchApp> {
       builder: (context, child) {
         final beacon = _controller.beaconOn;
         return MaterialApp(
-          title: 'Brújula y linterna',
+          title: 'CompassTorch',
           debugShowCheckedModeBanner: false,
           // El tema lo manda la aplicación, no el ajuste del sistema: oscuro
           // siempre, salvo con el modo faro activo.

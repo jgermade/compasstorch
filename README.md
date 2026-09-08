@@ -18,25 +18,28 @@ La pantalla se divide en dos mitades:
   banda muerta entre 35° y 55° para que la vista no oscile en el límite.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
-  superficie de plástico rugoso con un círculo grabado que hace de marca. Dos
-  líneas blancas cruzan el control, fijas al marco, y delimitan un cuadro de
-  reposo en la esquina inferior derecha donde la marca descansa.
+  superficie de plástico rugoso con un círculo translúcido que hace de marca.
+  Dos líneas blancas cruzan el control de lado a lado, fijas al marco, y
+  delimitan un cuadro de reposo en la esquina inferior derecha donde la marca
+  descansa. Un icono en cada cuadrante recuerda qué hace cada eje: la linterna
+  arriba a la derecha y el modo faro abajo a la izquierda.
 
   - Pasar la marca **por encima de la línea horizontal** enciende la linterna
-    **al 100 %**. Si el dispositivo permite graduarla, seguir subiendo la
-    atenúa, hasta el mínimo en la banda del borde superior.
+    **al mínimo**. Si el dispositivo permite graduarla, seguir subiendo la
+    sube, hasta el 100 % pegada al borde superior.
   - Pasarla **a la izquierda de la vertical** activa el **modo faro** (tema
     claro y pantalla que no se apaga) con el brillo al mínimo. Seguir hacia la
-    izquierda lo sube, hasta el 100 % en la banda translúcida del borde.
+    izquierda lo sube, hasta el 100 % pegada al borde izquierdo.
   - Los dos ejes son independientes: en diagonal quedan las dos cosas activas.
 
-  Al soltar, la marca se queda donde esté, salvo en tres sitios: dentro del
-  cuadro de reposo vuelve al centro, y dentro de una banda de iluminación se
-  centra en ella. También se puede tocar directamente el punto de destino.
+  Al soltar, la marca sale desde donde esté el dedo y se queda ahí, salvo en
+  tres sitios: dentro del cuadro de reposo vuelve al centro, y dentro de una
+  banda de iluminación se centra en ella. También se puede tocar directamente
+  el punto de destino.
 
-  El sentido de la gradación está invertido entre los dos a propósito: de una
-  linterna se quiere todo el brillo nada más encenderla, mientras que del faro
-  se quiere ir subiendo.
+  Los dos ejes gradúan en el mismo sentido: cruzar la línea enciende al
+  mínimo, y alejarse de ella sube la luz. Así el mando se lee igual mires el
+  eje que mires.
 
   Cada encendido y cada apagado se confirma con una **vibración háptica**: un
   golpe más marcado al activar y otro más suave al desactivar, para notar el
@@ -199,16 +202,28 @@ flutter run
 
 Los tests cubren el cálculo de la orientación con vectores conocidos (teléfono
 tumbado y levantado apuntando a cada rumbo, caída libre, campo alineado con la
-gravedad), la geometría del mando en `PadGeometry` (bandas, gradación invertida,
-ida y vuelta entre posición y nivel, y dónde se queda la marca al soltarla), los
-gestos sobre el mando, y la lógica de los controles —jerarquía de vibraciones,
-gradación, suelo de brillo y coalescencia de envíos— con un doble de
-`DeviceServices`, sin tocar los canales de plataforma.
+gravedad), la geometría del mando en `PadGeometry` (bandas, sentido de la
+gradación, ida y vuelta entre posición y nivel, y dónde se queda la marca al
+soltarla), los gestos sobre el mando, y la lógica de los controles —jerarquía
+de vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un
+doble de `DeviceServices`, sin tocar los canales de plataforma.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
 una función pura, comprobable sin simular gestos.
 
 El código nativo (Kotlin y Swift) no tiene pruebas propias: lo verifica la
-compilación en CI. **Nada de esto se ha ejecutado todavía en un teléfono real**,
+compilación en CI.
+
+## Icono
+
+El original es `CompassTorch.svg`: una brújula cuya aguja es una linterna. De
+ahí salen todos los tamaños de Android e iOS —incluidos el icono adaptativo y
+su capa monocroma para los iconos temáticos de Android 13— con:
+
+```bash
+pip install pillow cairosvg
+python3 tool/generate_app_icons.py
+```
+ **Nada de esto se ha ejecutado todavía en un teléfono real**,
 así que el comportamiento del flash y del brillo sobre hardware está sin
 confirmar.

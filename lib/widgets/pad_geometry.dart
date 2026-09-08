@@ -23,12 +23,12 @@ enum PadZone {
 /// horizontal hacia arriba enciende la linterna; cruzar la vertical hacia la
 /// izquierda activa el modo faro. Los dos ejes son independientes.
 ///
-/// Cada eje tiene una banda pegada a su línea y otra en el borde opuesto, pero
-/// el sentido está invertido a propósito:
+/// Cada eje tiene una banda pegada a su línea y otra en el borde opuesto, y
+/// los dos se leen igual: cruzar la línea enciende al mínimo, y alejarse de
+/// ella sube la luz hasta el 100 % en la banda del borde.
 ///
-/// - **Linterna**: cruzar la línea da el 100 %, que es lo que se quiere de una
-///   linterna nada más encenderla. Seguir subiendo la atenúa hasta el mínimo,
-///   en la banda del borde superior.
+/// - **Linterna**: cruzar la línea la enciende al mínimo y seguir subiendo la
+///   sube, hasta el 100 % en la banda del borde superior.
 /// - **Faro**: cruzar la línea da el mínimo y seguir hacia la izquierda sube el
 ///   brillo, hasta el 100 % en la banda del borde izquierdo.
 class PadGeometry {
@@ -50,11 +50,13 @@ class PadGeometry {
   /// Recorrido continuo entre las dos bandas de un eje.
   static const double _ramp = line - 2 * maxBand;
 
-  /// Altura a la que la marca deja la linterna al 100 %.
-  static const double torchFullAxis = line - maxBand / 2;
+  /// Altura a la que la marca deja la linterna al 100 %: la banda del borde
+  /// superior, la más lejos de la línea.
+  static const double torchFullAxis = maxBand / 2;
 
-  /// Altura a la que la marca deja la linterna al mínimo.
-  static const double torchDimAxis = maxBand / 2;
+  /// Altura a la que la marca deja la linterna al mínimo: la banda pegada a la
+  /// línea, que es por donde se cruza.
+  static const double torchDimAxis = line - maxBand / 2;
 
   /// Posición horizontal a la que la marca deja el faro al 100 %.
   static const double beaconFullAxis = maxBand / 2;
@@ -69,8 +71,8 @@ class PadGeometry {
   /// Tramo en el que cae la marca en el eje de la linterna.
   static PadZone torchZone(double y) {
     if (y >= line) return PadZone.rest;
-    if (y >= line - maxBand) return PadZone.max;
-    if (y <= maxBand) return PadZone.min;
+    if (y >= line - maxBand) return PadZone.min;
+    if (y <= maxBand) return PadZone.max;
     return PadZone.ramp;
   }
 
@@ -93,7 +95,7 @@ class PadGeometry {
         return minTorchIntensity;
       case PadZone.ramp:
         final fraction = (line - maxBand - y) / _ramp;
-        return lerpDouble(1, minTorchIntensity, fraction.clamp(0.0, 1.0))!;
+        return lerpDouble(minTorchIntensity, 1, fraction.clamp(0.0, 1.0))!;
     }
   }
 
@@ -114,7 +116,7 @@ class PadGeometry {
   static double torchAxisFor(double intensity) {
     if (intensity >= 1) return torchFullAxis;
     if (intensity <= minTorchIntensity) return torchDimAxis;
-    final fraction = (1 - intensity) / (1 - minTorchIntensity);
+    final fraction = (intensity - minTorchIntensity) / (1 - minTorchIntensity);
     return (line - maxBand) - fraction * _ramp;
   }
 
@@ -146,9 +148,10 @@ class PadGeometry {
 
     final double y;
     if (!torchIsGradual && torchOn(released.dy)) {
-      // Sin gradación la linterna solo tiene un nivel: la marca se queda en la
-      // banda del 100 % en vez de a media altura.
-      y = torchFullAxis;
+      // Sin gradación la linterna solo tiene un nivel, así que la altura no
+      // significa nada: la marca se queda nada más pasada la línea, que es por
+      // donde se ha cruzado.
+      y = torchDimAxis;
     } else {
       switch (torchZone(released.dy)) {
         case PadZone.rest:

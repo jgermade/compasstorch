@@ -9,14 +9,15 @@ import 'pad_geometry.dart';
 /// Mando deslizable: en vez de moverse un pulsador, se desplaza **el fondo**.
 ///
 /// El fondo es una superficie de plástico rugoso con una marca circular
-/// grabada. Sobre él, fijas al marco, dos líneas blancas cruzan el control y
-/// delimitan un cuadro de reposo en la esquina inferior derecha. Arrastrar
+/// translúcida. Sobre él, fijas al marco, dos líneas blancas cruzan el control
+/// y delimitan un cuadro de reposo en la esquina inferior derecha. Arrastrar
 /// mueve la superficie, y con ella la marca: pasarla por encima de la línea
 /// horizontal enciende la linterna, y pasarla a la izquierda de la vertical
 /// activa el modo faro.
 ///
-/// La posición dentro de cada eje gradúa la luz. Ver [PadGeometry] para el
-/// reparto de bandas, que está invertido entre los dos controles.
+/// La posición dentro de cada eje gradúa la luz: los dos empiezan al mínimo al
+/// cruzar su línea y suben al alejarse de ella. Ver [PadGeometry] para el
+/// reparto de bandas.
 class ControlPad extends StatefulWidget {
   const ControlPad({
     super.key,
@@ -85,7 +86,9 @@ class _ControlPadState extends State<ControlPad>
     final y = widget.torchOn
         ? (widget.torchIsGradual
               ? PadGeometry.torchAxisFor(widget.torchIntensity)
-              : PadGeometry.torchFullAxis)
+              // Sin gradación la altura no dice nada: la marca se queda nada
+              // más pasada la línea.
+              : PadGeometry.torchDimAxis)
         : PadGeometry.rest.dy;
     return Offset(x, y);
   }
@@ -109,10 +112,10 @@ class _ControlPadState extends State<ControlPad>
     super.dispose();
   }
 
-  void _animateTo(Offset target) {
+  void _animateTo(Offset target, {Offset? from}) {
     _target = target;
     _mark = Tween<Offset>(
-      begin: _position,
+      begin: from ?? _position,
       end: target,
     ).animate(CurvedAnimation(parent: _settle, curve: Curves.easeOutCubic));
     _settle.forward(from: 0);
@@ -156,8 +159,13 @@ class _ControlPadState extends State<ControlPad>
       released,
       torchIsGradual: widget.torchIsGradual,
     );
+    // La animación arranca donde estaba la marca al soltar. Si se dejara que
+    // `_animateTo` la leyera después de borrar el arrastre, saldría de
+    // `_mark`, que se quedó parado al empezar el gesto, y la marca daría un
+    // salto atrás antes de acomodarse.
+    final from = _drag ?? _position;
     _drag = null;
-    _animateTo(settled);
+    _animateTo(settled, from: from);
     _emit(settled);
   }
 
@@ -182,7 +190,9 @@ class _ControlPadState extends State<ControlPad>
 
     widget.onTorchChanged(
       PadGeometry.torchOn(position.dy),
-      PadGeometry.torchIntensity(position.dy),
+      // Donde el flash no se puede regular solo hay un nivel, y es el máximo:
+      // la altura de la marca no lo cambia.
+      widget.torchIsGradual ? PadGeometry.torchIntensity(position.dy) : 1,
     );
     widget.onBeaconChanged(
       PadGeometry.beaconOn(position.dx),
@@ -217,14 +227,37 @@ class _ControlPadState extends State<ControlPad>
       final raised = random.nextBool();
       canvas.drawCircle(
         position,
-        0.35 + random.nextDouble() * 0.9,
+        0.5 + random.nextDouble() * 1.5,
         Paint()
           ..color = (raised ? Colors.white : Colors.black).withValues(
-            alpha: 0.02 + random.nextDouble() * 0.055,
+            alpha: 0.05 + random.nextDouble() * 0.14,
           ),
       );
     }
     return recorder.endRecording();
+  }
+
+  /// Icono fijo del marco, centrado en [center]. Se enciende cuando su
+  /// control está activo.
+  Widget _icon(
+    IconData icon,
+    Offset center,
+    Color color,
+    double side, {
+    required bool active,
+  }) {
+    final size = side * 0.12;
+    return Positioned(
+      left: center.dx - size / 2,
+      top: center.dy - size / 2,
+      child: IgnorePointer(
+        child: Icon(
+          icon,
+          size: size,
+          color: color.withValues(alpha: active ? 0.95 : 0.4),
+        ),
+      ),
+    );
   }
 
   @override
@@ -257,15 +290,36 @@ class _ControlPadState extends State<ControlPad>
                 onPanUpdate: _onPanUpdate,
                 onPanEnd: _onPanEnd,
                 onTapUp: _onTapUp,
-                child: CustomPaint(
-                  painter: _PadPainter(
-                    mark: _position,
-                    texture: _texture!,
-                    scheme: theme.colorScheme,
-                    labelStyle: theme.textTheme.labelSmall!,
-                    torchOn: widget.torchOn,
-                    beaconOn: widget.beaconOn,
-                  ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _PadPainter(
+                          mark: _position,
+                          texture: _texture!,
+                          scheme: theme.colorScheme,
+                        ),
+                      ),
+                    ),
+                    // Un icono por control, en el cuadrante donde solo actúa
+                    // ese: la linterna arriba a la derecha y el faro abajo a
+                    // la izquierda, cada uno alineado con el cuadro de reposo
+                    // por el eje que le toca.
+                    _icon(
+                      Icons.flashlight_on,
+                      Offset(PadGeometry.rest.dx * side, side * 0.1),
+                      theme.colorScheme.primary,
+                      side,
+                      active: widget.torchOn,
+                    ),
+                    _icon(
+                      Icons.brightness_high,
+                      Offset(side * 0.1, PadGeometry.rest.dy * side),
+                      theme.colorScheme.secondary,
+                      side,
+                      active: widget.beaconOn,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -292,17 +346,11 @@ class _PadPainter extends CustomPainter {
     required this.mark,
     required this.texture,
     required this.scheme,
-    required this.labelStyle,
-    required this.torchOn,
-    required this.beaconOn,
   });
 
   final Offset mark;
   final ui.Picture texture;
   final ColorScheme scheme;
-  final TextStyle labelStyle;
-  final bool torchOn;
-  final bool beaconOn;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -316,7 +364,7 @@ class _PadPainter extends CustomPainter {
     canvas.clipRRect(frame);
 
     // Superficie móvil: se desplaza lo que se ha separado la marca del reposo,
-    // así que la marca grabada aparece justo bajo el dedo.
+    // así que la marca aparece justo bajo el dedo.
     final travel = (mark - PadGeometry.rest) * side;
     canvas.save();
     canvas.translate(travel.dx, travel.dy);
@@ -336,139 +384,41 @@ class _PadPainter extends CustomPainter {
     );
   }
 
-  /// Círculo grabado en la superficie: un rebaje, con la sombra arriba y el
-  /// brillo abajo, como si la luz viniera de lo alto.
+  /// Marca de la superficie: un disco translúcido y plano, que se lee sobre
+  /// el grano del plástico sin taparlo.
   void _paintMark(Canvas canvas, Offset center, double side) {
-    // Cabe justo dentro de una banda: en los extremos la marca no se sale del
-    // cuadro.
-    final radius = side * (PadGeometry.maxBand / 2) * 0.92;
-
-    var recess = Color.lerp(
-      _plastic(scheme),
-      Colors.black,
-      scheme.brightness == Brightness.dark ? 0.45 : 0.12,
-    )!;
-    if (torchOn) recess = Color.lerp(recess, scheme.primary, 0.35)!;
-    if (beaconOn) recess = Color.lerp(recess, scheme.secondary, 0.35)!;
-
-    canvas.drawCircle(center, radius, Paint()..color = recess);
-
-    // Rebaje: sombra arriba y luz abajo, como si la luz viniera de lo alto.
-    final dark = scheme.brightness == Brightness.dark;
-    final bevel = radius * 0.07;
-    canvas.drawCircle(
-      center.translate(0, -bevel),
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = radius * 0.14
-        ..color = Colors.black.withValues(alpha: dark ? 0.45 : 0.22),
-    );
-    canvas.drawCircle(
-      center.translate(0, bevel),
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = radius * 0.14
-        ..color = Colors.white.withValues(alpha: dark ? 0.18 : 0.75),
-    );
+    final radius = side * (PadGeometry.maxBand / 2) * 0.55;
     canvas.drawCircle(
       center,
       radius,
       Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = Colors.black.withValues(alpha: 0.25),
+        ..color = _ink(
+          scheme,
+        ).withValues(alpha: scheme.brightness == Brightness.dark ? 0.22 : 0.16),
     );
   }
 
-  /// Marco fijo: las líneas, las bandas de iluminación y las etiquetas. No se
-  /// mueve con la superficie, es contra lo que se compara la marca.
+  /// Marco fijo: las dos líneas que cruzan el mando y delimitan el cuadro de
+  /// reposo. No se mueven con la superficie: son contra lo que se compara la
+  /// marca.
   void _paintOverlay(Canvas canvas, Size size, double side) {
     final lineX = PadGeometry.line * side;
     final lineY = PadGeometry.line * side;
-    final band = PadGeometry.maxBand * side;
 
-    // Bandas del 100 %: la del faro en el borde izquierdo y la de la linterna
-    // pegada por encima a su línea. Son las dos únicas zonas rellenas, para
-    // que se lean de un vistazo, y cada una se queda en su lado de la línea.
-    final ink = _ink(scheme);
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, band, lineY),
-      Paint()..color = ink.withValues(alpha: 0.11),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, lineY - band, lineX, band),
-      Paint()..color = ink.withValues(alpha: 0.07),
-    );
-
-    // Bandas de iluminación mínima: solo su filo, para no recargar el mando
-    // con más rectángulos.
-    final edge = Paint()
-      ..strokeWidth = 1
-      ..color = ink.withValues(alpha: 0.22);
-    canvas.drawLine(Offset(0, band), Offset(lineX, band), edge);
-    canvas.drawLine(Offset(lineX - band, 0), Offset(lineX - band, lineY), edge);
-
-    // Las líneas que cruzan el control: blancas sobre el plástico oscuro, y
-    // oscuras cuando el modo faro aclara el fondo, o desaparecerían.
-    final white = Paint()
+    // Blancas sobre el plástico oscuro, y oscuras cuando el modo faro aclara
+    // el fondo, o desaparecerían.
+    final line = Paint()
       ..strokeWidth = 1.8
       ..color = scheme.brightness == Brightness.dark
           ? Colors.white.withValues(alpha: 0.85)
           : Colors.black.withValues(alpha: 0.45);
-    canvas.drawLine(Offset(0, lineY), Offset(size.width, lineY), white);
-    canvas.drawLine(Offset(lineX, 0), Offset(lineX, size.height), white);
-
-    _label(
-      canvas,
-      'LINTERNA',
-      Offset(lineX - band - 12, lineY - band / 2),
-      scheme.primary,
-      rightAligned: true,
-    );
-    _label(
-      canvas,
-      'FARO',
-      Offset(band / 2, lineY + 22),
-      scheme.secondary,
-      centered: true,
-    );
-  }
-
-  void _label(
-    Canvas canvas,
-    String text,
-    Offset anchor,
-    Color color, {
-    bool centered = false,
-    bool rightAligned = false,
-    double alpha = 0.9,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: labelStyle.copyWith(
-          color: color.withValues(alpha: alpha),
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final dx = centered
-        ? anchor.dx - painter.width / 2
-        : rightAligned
-        ? anchor.dx - painter.width
-        : anchor.dx;
-    painter.paint(canvas, Offset(dx, anchor.dy - painter.height / 2));
+    canvas.drawLine(Offset(0, lineY), Offset(size.width, lineY), line);
+    canvas.drawLine(Offset(lineX, 0), Offset(lineX, size.height), line);
   }
 
   @override
   bool shouldRepaint(_PadPainter oldDelegate) =>
       oldDelegate.mark != mark ||
       oldDelegate.scheme != scheme ||
-      oldDelegate.torchOn != torchOn ||
-      oldDelegate.beaconOn != beaconOn ||
       oldDelegate.texture != texture;
 }
