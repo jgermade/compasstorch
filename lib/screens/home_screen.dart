@@ -40,6 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    // Saber si el flash se puede graduar cambia cómo se comporta el eje
+    // vertical del mando, así que se pregunta cuanto antes.
+    widget.controller.loadTorchCapabilities();
   }
 
   @override
@@ -99,10 +102,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (context, child) => ControlPad(
                         torchOn: widget.controller.torchOn,
                         beaconOn: widget.controller.beaconOn,
-                        onTorchChanged: (value) =>
-                            widget.controller.setTorch(enabled: value),
-                        onBeaconChanged: (value) =>
-                            widget.controller.setBeacon(enabled: value),
+                        torchIntensity: widget.controller.torchIntensity,
+                        beaconLevel: widget.controller.beaconLevel,
+                        torchIsGradual: widget.controller.torchIsGradual,
+                        onTorchChanged: (enabled, level) => widget.controller
+                            .setTorch(enabled: enabled, intensity: level),
+                        onBeaconChanged: (enabled, level) => widget.controller
+                            .setBeacon(enabled: enabled, level: level),
                       ),
                     ),
                   ),
@@ -158,6 +164,9 @@ class _StatusBar extends StatelessWidget {
                 on: controller.torchOn,
                 color: theme.colorScheme.primary,
                 label: 'Linterna',
+                level: controller.torchIsGradual
+                    ? controller.torchIntensity
+                    : null,
               ),
               const SizedBox(width: 8),
               _StateChip(
@@ -165,6 +174,7 @@ class _StatusBar extends StatelessWidget {
                 on: controller.beaconOn,
                 color: theme.colorScheme.secondary,
                 label: 'Faro',
+                level: controller.beaconLevel,
               ),
             ],
           );
@@ -180,6 +190,7 @@ class _StateChip extends StatelessWidget {
     required this.on,
     required this.color,
     required this.label,
+    this.level,
   });
 
   final IconData icon;
@@ -187,23 +198,49 @@ class _StateChip extends StatelessWidget {
   final Color color;
   final String label;
 
+  /// Nivel de 0 a 1, o `null` si este control no se puede graduar.
+  final double? level;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final percentage = level == null ? null : (level! * 100).round();
+    final state = on
+        ? (percentage == null ? 'encendida' : 'al $percentage por ciento')
+        : 'apagada';
+
     return Semantics(
-      label: '$label ${on ? 'encendida' : 'apagada'}',
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: on ? color : scheme.onSurface.withValues(alpha: 0.08),
-        ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: on ? Colors.black87 : scheme.onSurface.withValues(alpha: 0.45),
-        ),
+      label: '$label $state',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: on ? color : scheme.onSurface.withValues(alpha: 0.08),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: on
+                  ? Colors.black87
+                  : scheme.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
+          if (on && percentage != null) ...[
+            const SizedBox(width: 4),
+            Text(
+              '$percentage%',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

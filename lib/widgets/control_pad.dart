@@ -3,26 +3,61 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-/// Mando deslizable en dos ejes.
+/// Mando deslizable analógico en dos ejes.
 ///
 /// El pulsador descansa en la esquina inferior derecha. Arrastrarlo **hacia
 /// arriba** enciende la linterna y arrastrarlo **hacia la izquierda** activa el
 /// modo faro; los dos ejes son independientes, así que la esquina superior
-/// izquierda deja las dos funciones activas. También se puede tocar
-/// directamente la esquina a la que se quiere llevar el pulsador.
+/// izquierda deja las dos funciones activas.
+///
+/// La posición no es solo encendido y apagado: **cuanto más lejos del reposo,
+/// más luz**. El pulsador se queda donde se suelte, salvo que caiga por debajo
+/// del umbral de activación, y entonces vuelve al reposo. En los dispositivos
+/// que no pueden regular el flash, [torchIsGradual] es `false` y el eje
+/// vertical vuelve a comportarse como un interruptor.
 class ControlPad extends StatefulWidget {
   const ControlPad({
     super.key,
     required this.torchOn,
     required this.beaconOn,
+    required this.torchIntensity,
+    required this.beaconLevel,
+    required this.torchIsGradual,
     required this.onTorchChanged,
     required this.onBeaconChanged,
   });
 
+  /// Fracción del recorrido por debajo de la cual el control está apagado.
+  static const double activationThreshold = 0.12;
+
   final bool torchOn;
   final bool beaconOn;
-  final ValueChanged<bool> onTorchChanged;
-  final ValueChanged<bool> onBeaconChanged;
+
+  /// Intensidad y brillo pedidos, de 0 a 1.
+  final double torchIntensity;
+  final double beaconLevel;
+
+  /// El dispositivo puede regular la intensidad del flash.
+  final bool torchIsGradual;
+
+  /// Se llama con el estado y el nivel cada vez que cambian, también durante el
+  /// arrastre.
+  final void Function(bool enabled, double level) onTorchChanged;
+  final void Function(bool enabled, double level) onBeaconChanged;
+
+  /// Nivel (0 a 1) que corresponde a una posición del eje.
+  static double levelForAxis(double axis) {
+    return ((axis - activationThreshold) / (1 - activationThreshold)).clamp(
+      0.0,
+      1.0,
+    );
+  }
+
+  /// Posición del eje que corresponde a un nivel.
+  static double axisForLevel(double level) {
+    return activationThreshold +
+        level.clamp(0.0, 1.0) * (1 - activationThreshold);
+  }
 
   @override
   State<ControlPad> createState() => _ControlPadState();
@@ -30,10 +65,6 @@ class ControlPad extends StatefulWidget {
 
 class _ControlPadState extends State<ControlPad>
     with SingleTickerProviderStateMixin {
-  /// Velocidad (px/s) a partir de la cual un gesto rápido decide el eje sin
-  /// necesidad de cruzar la mitad del recorrido.
-  static const double _flingVelocity = 550;
-
   late final AnimationController _settle = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 260),
@@ -48,8 +79,17 @@ class _ControlPadState extends State<ControlPad>
 
   Size _padSize = Size.zero;
 
-  Offset _targetFromWidget() =>
-      Offset(widget.beaconOn ? 1 : 0, widget.torchOn ? 1 : 0);
+  Offset _targetFromWidget() {
+    final x = widget.beaconOn
+        ? ControlPad.axisForLevel(widget.beaconLevel)
+        : 0.0;
+    final y = widget.torchOn
+        ? (widget.torchIsGradual
+              ? ControlPad.axisForLevel(widget.torchIntensity)
+              : 1.0)
+        : 0.0;
+    return Offset(x, y);
+  }
 
   Offset get _position => _drag ?? _knob.value;
 
@@ -58,7 +98,8 @@ class _ControlPadState extends State<ControlPad>
     super.didUpdateWidget(oldWidget);
     final target = _targetFromWidget();
     // El estado real lo decide el controlador: si rechazó el cambio (por
-    // ejemplo, no hay flash), el pulsador vuelve a donde estaba.
+    // ejemplo, no hay flash), el pulsador vuelve a donde estaba. Durante el
+    // arrastre manda el dedo, no el estado.
     if (target != _target && _drag == null) _animateTo(target);
   }
 
@@ -114,43 +155,48 @@ class _ControlPadState extends State<ControlPad>
 
   void _onPanUpdate(DragUpdateDetails details) {
     final current = _drag ?? _position;
-    setState(() {
-      _drag = Offset(
-        (current.dx - details.delta.dx / _travel.dx).clamp(0.0, 1.0),
-        (current.dy - details.delta.dy / _travel.dy).clamp(0.0, 1.0),
-      );
-    });
+    final next = Offset(
+      (current.dx - details.delta.dx / _travel.dx).clamp(0.0, 1.0),
+      (current.dy - details.delta.dy / _travel.dy).clamp(0.0, 1.0),
+    );
+    setState(() => _drag = next);
+    // La luz sigue al dedo: el controlador se encarga de no saturar el canal.
+    _emit(next);
   }
 
   void _onPanEnd(DragEndDetails details) {
-    final released = _drag ?? _position;
-    final velocity = details.velocity.pixelsPerSecond;
-
-    // Un gesto rápido manda sobre la posición; si no, gana la mitad más cercana.
-    final beacon = velocity.dx < -_flingVelocity
-        ? true
-        : velocity.dx > _flingVelocity
-        ? false
-        : released.dx >= 0.5;
-    final torch = velocity.dy < -_flingVelocity
-        ? true
-        : velocity.dy > _flingVelocity
-        ? false
-        : released.dy >= 0.5;
-
-    _drag = null;
-    _commit(beacon: beacon, torch: torch);
+    _commit(_drag ?? _position);
   }
 
   void _onTapUp(TapUpDetails details) {
-    final tapped = _positionFor(details.localPosition);
-    _commit(beacon: tapped.dx >= 0.5, torch: tapped.dy >= 0.5);
+    _commit(_positionFor(details.localPosition));
   }
 
-  void _commit({required bool beacon, required bool torch}) {
-    _animateTo(Offset(beacon ? 1 : 0, torch ? 1 : 0));
-    if (torch != widget.torchOn) widget.onTorchChanged(torch);
-    if (beacon != widget.beaconOn) widget.onBeaconChanged(beacon);
+  /// Fija la posición soltada: se queda donde está, salvo que caiga por debajo
+  /// del umbral (vuelve al reposo) o que el eje no admita gradación.
+  void _commit(Offset released) {
+    final threshold = ControlPad.activationThreshold;
+    final x = released.dx < threshold ? 0.0 : released.dx;
+    final y = released.dy < threshold
+        ? 0.0
+        : (widget.torchIsGradual ? released.dy : 1.0);
+
+    _drag = null;
+    _animateTo(Offset(x, y));
+    _emit(Offset(x, y));
+  }
+
+  /// Traslada una posición del mando a estado y nivel de cada control.
+  void _emit(Offset position) {
+    final threshold = ControlPad.activationThreshold;
+    widget.onTorchChanged(
+      position.dy >= threshold,
+      ControlPad.levelForAxis(position.dy),
+    );
+    widget.onBeaconChanged(
+      position.dx >= threshold,
+      ControlPad.levelForAxis(position.dx),
+    );
   }
 
   @override

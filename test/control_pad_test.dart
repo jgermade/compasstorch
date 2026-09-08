@@ -5,10 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 /// Envoltorio con estado, como lo usa la pantalla real: el mando es controlado
 /// y refleja el estado que le devuelve el padre.
 class _Harness extends StatefulWidget {
-  const _Harness({this.rejectTorch = false});
+  const _Harness({this.rejectTorch = false, this.torchIsGradual = true});
 
   /// Simula un dispositivo sin flash: el padre no acepta encender la linterna.
   final bool rejectTorch;
+
+  /// Simula un dispositivo que no puede regular la intensidad del flash.
+  final bool torchIsGradual;
 
   @override
   State<_Harness> createState() => _HarnessState();
@@ -17,6 +20,8 @@ class _Harness extends StatefulWidget {
 class _HarnessState extends State<_Harness> {
   bool torch = false;
   bool beacon = false;
+  double torchLevel = 1;
+  double beaconLevel = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +34,17 @@ class _HarnessState extends State<_Harness> {
             child: ControlPad(
               torchOn: torch,
               beaconOn: beacon,
-              onTorchChanged: (value) =>
-                  setState(() => torch = widget.rejectTorch ? false : value),
-              onBeaconChanged: (value) => setState(() => beacon = value),
+              torchIntensity: torchLevel,
+              beaconLevel: beaconLevel,
+              torchIsGradual: widget.torchIsGradual,
+              onTorchChanged: (enabled, level) => setState(() {
+                torch = widget.rejectTorch ? false : enabled;
+                torchLevel = level;
+              }),
+              onBeaconChanged: (enabled, level) => setState(() {
+                beacon = enabled;
+                beaconLevel = level;
+              }),
             ),
           ),
         ),
@@ -140,6 +153,78 @@ void main() {
 
     expect(state(tester).torch, isFalse);
     expect(state(tester).beacon, isFalse);
+  });
+
+  testWidgets('soltar a media altura enciende la linterna a media potencia', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+    final rect = tester.getRect(padFinder());
+
+    // Hasta la mitad del recorrido vertical.
+    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.45));
+    await tester.pumpAndSettle();
+
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+    expect(state.torch, isTrue);
+    // Ni apagada ni a tope: un valor intermedio.
+    expect(state.torchLevel, greaterThan(0.15));
+    expect(state.torchLevel, lessThan(0.85));
+  });
+
+  testWidgets('más arriba da más intensidad que menos arriba', (tester) async {
+    await tester.pumpWidget(const _Harness());
+    final rect = tester.getRect(padFinder());
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+
+    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.3));
+    await tester.pumpAndSettle();
+    final low = state.torchLevel;
+
+    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.9));
+    await tester.pumpAndSettle();
+
+    expect(state.torchLevel, greaterThan(low));
+  });
+
+  testWidgets('el eje horizontal gradúa el brillo del faro', (tester) async {
+    await tester.pumpWidget(const _Harness());
+    final rect = tester.getRect(padFinder());
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+
+    await tester.dragFrom(restingKnob(tester), Offset(-rect.width * 0.45, 0));
+    await tester.pumpAndSettle();
+
+    expect(state.beacon, isTrue);
+    expect(state.beaconLevel, greaterThan(0.15));
+    expect(state.beaconLevel, lessThan(0.85));
+  });
+
+  testWidgets('sin gradación el eje vertical vuelve a ser un interruptor', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness(torchIsGradual: false));
+    final rect = tester.getRect(padFinder());
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+
+    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.45));
+    await tester.pumpAndSettle();
+
+    expect(state.torch, isTrue);
+    // El pulsador salta arriba del todo en vez de quedarse a media altura.
+    expect(state.torchLevel, closeTo(1, 0.001));
+  });
+
+  testWidgets('un arrastre por debajo del umbral no llega a encender', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+    final rect = tester.getRect(padFinder());
+
+    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.05));
+    await tester.pumpAndSettle();
+
+    expect(tester.state<_HarnessState>(find.byType(_Harness)).torch, isFalse);
   });
 
   testWidgets('si el padre rechaza la linterna, el pulsador vuelve al reposo', (
