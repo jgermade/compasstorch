@@ -1,14 +1,19 @@
 import 'package:compasstorch/widgets/control_pad.dart';
+import 'package:compasstorch/widgets/pad_geometry.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Envoltorio con estado, como lo usa la pantalla real: el mando es controlado
 /// y refleja el estado que le devuelve el padre.
 class _Harness extends StatefulWidget {
-  const _Harness({this.rejectTorch = false});
+  const _Harness({this.rejectTorch = false, this.torchIsGradual = true});
 
   /// Simula un dispositivo sin flash: el padre no acepta encender la linterna.
   final bool rejectTorch;
+
+  /// Simula un dispositivo que no puede regular la intensidad del flash.
+  final bool torchIsGradual;
 
   @override
   State<_Harness> createState() => _HarnessState();
@@ -17,6 +22,9 @@ class _Harness extends StatefulWidget {
 class _HarnessState extends State<_Harness> {
   bool torch = false;
   bool beacon = false;
+  double torchLevel = 0;
+  double beaconLevel = 0;
+  int zoneChanges = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +37,18 @@ class _HarnessState extends State<_Harness> {
             child: ControlPad(
               torchOn: torch,
               beaconOn: beacon,
-              onTorchChanged: (value) =>
-                  setState(() => torch = widget.rejectTorch ? false : value),
-              onBeaconChanged: (value) => setState(() => beacon = value),
+              torchIntensity: torchLevel,
+              beaconLevel: beaconLevel,
+              torchIsGradual: widget.torchIsGradual,
+              onTorchChanged: (enabled, level) => setState(() {
+                torch = widget.rejectTorch ? false : enabled;
+                torchLevel = level;
+              }),
+              onBeaconChanged: (enabled, level) => setState(() {
+                beacon = enabled;
+                beaconLevel = level;
+              }),
+              onZoneChanged: () => zoneChanges++,
             ),
           ),
         ),
@@ -46,114 +63,203 @@ void main() {
     of: find.byType(ControlPad),
     matching: find.byType(GestureDetector),
   );
+
   _HarnessState state(WidgetTester tester) =>
       tester.state<_HarnessState>(find.byType(_Harness));
 
-  /// Centro del pulsador en reposo: esquina inferior derecha del mando.
-  Offset restingKnob(WidgetTester tester) {
+  /// Punto del mando en coordenadas normalizadas.
+  Offset at(WidgetTester tester, double x, double y) {
     final rect = tester.getRect(padFinder());
-    final margin = rect.shortestSide * 0.16 + 8;
-    return Offset(rect.right - margin, rect.bottom - margin);
+    return rect.topLeft + Offset(rect.width * x, rect.height * y);
   }
 
-  testWidgets('arrastrar hacia arriba enciende la linterna', (tester) async {
-    await tester.pumpWidget(const _Harness());
-    final rect = tester.getRect(padFinder());
+  /// Arrastra la marca de un punto normalizado a otro.
+  ///
+  /// El reconocedor de arrastre descarta los primeros [kPanSlop] píxeles antes
+  /// de empezar a informar, así que se consumen aparte: si no, el gesto llega
+  /// corto y la marca no alcanza la línea.
+  Future<void> dragMark(WidgetTester tester, Offset from, Offset to) async {
+    final start = at(tester, from.dx, from.dy);
+    final delta = at(tester, to.dx, to.dy) - start;
+    final gesture = await tester.startGesture(start);
+    final slop = delta.distance == 0
+        ? const Offset(0, -kPanSlop - 1)
+        : delta / delta.distance * (kPanSlop + 1);
+    await gesture.moveBy(slop);
+    await tester.pump();
+    // Por pasos, como un arrastre real: de un solo salto la marca se saltaría
+    // las bandas intermedias.
+    const steps = 12;
+    for (var i = 0; i < steps; i++) {
+      await gesture.moveBy(delta / steps.toDouble());
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+  }
 
-    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.7));
+  /// Arrastra la marca desde el reposo hasta un punto normalizado.
+  Future<void> dragMarkTo(WidgetTester tester, double x, double y) =>
+      dragMark(tester, PadGeometry.rest, Offset(x, y));
+
+  testWidgets('en reposo los dos controles están apagados', (tester) async {
+    await tester.pumpWidget(const _Harness());
     await tester.pumpAndSettle();
 
-    expect(state(tester).torch, isTrue);
+    expect(state(tester).torch, isFalse);
     expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('arrastrar hacia la izquierda activa el modo faro', (
+  testWidgets('cruzar la línea hacia arriba enciende la linterna al 100 %', (
     tester,
   ) async {
     await tester.pumpWidget(const _Harness());
-    final rect = tester.getRect(padFinder());
 
-    await tester.dragFrom(restingKnob(tester), Offset(-rect.width * 0.7, 0));
-    await tester.pumpAndSettle();
+    // Justo por encima de la línea horizontal: dentro de la banda del máximo.
+    await dragMarkTo(tester, PadGeometry.rest.dx, PadGeometry.line - 0.05);
 
-    expect(state(tester).beacon, isTrue);
-    expect(state(tester).torch, isFalse);
+    expect(state(tester).torch, isTrue);
+    expect(state(tester).torchLevel, closeTo(1, 0.001));
+    expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('en diagonal se activan los dos a la vez', (tester) async {
+  testWidgets('seguir subiendo atenúa la linterna', (tester) async {
     await tester.pumpWidget(const _Harness());
-    final rect = tester.getRect(padFinder());
 
-    await tester.dragFrom(
-      restingKnob(tester),
-      Offset(-rect.width * 0.7, -rect.height * 0.7),
+    await dragMarkTo(tester, PadGeometry.rest.dx, 0.35);
+    final middle = state(tester).torchLevel;
+
+    await dragMarkTo(tester, PadGeometry.rest.dx, 0.05);
+
+    expect(middle, lessThan(1));
+    expect(state(tester).torchLevel, lessThan(middle));
+    expect(
+      state(tester).torchLevel,
+      closeTo(PadGeometry.minTorchIntensity, 0.001),
     );
-    await tester.pumpAndSettle();
+    // Sigue encendida, solo que al mínimo.
+    expect(state(tester).torch, isTrue);
+  });
+
+  testWidgets('cruzar hacia la izquierda activa el faro con poco brillo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+
+    await dragMarkTo(tester, PadGeometry.line - 0.05, PadGeometry.rest.dy);
+
+    expect(state(tester).beacon, isTrue);
+    expect(state(tester).beaconLevel, lessThan(0.05));
+    expect(state(tester).torch, isFalse);
+  });
+
+  testWidgets('seguir hacia la izquierda sube el brillo hasta el 100 %', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+
+    await dragMarkTo(tester, 0.35, PadGeometry.rest.dy);
+    final middle = state(tester).beaconLevel;
+
+    await dragMarkTo(tester, 0.04, PadGeometry.rest.dy);
+
+    expect(middle, greaterThan(0));
+    expect(middle, lessThan(1));
+    expect(state(tester).beaconLevel, closeTo(1, 0.001));
+  });
+
+  testWidgets('en diagonal quedan los dos activos', (tester) async {
+    await tester.pumpWidget(const _Harness());
+
+    await dragMarkTo(tester, 0.3, 0.3);
 
     expect(state(tester).torch, isTrue);
     expect(state(tester).beacon, isTrue);
   });
 
-  testWidgets('un arrastre corto no llega a activar nada', (tester) async {
-    await tester.pumpWidget(const _Harness());
-
-    await tester.dragFrom(restingKnob(tester), const Offset(0, -30));
-    await tester.pumpAndSettle();
-
-    expect(state(tester).torch, isFalse);
-  });
-
-  testWidgets('devolver el pulsador al reposo apaga la linterna', (
+  testWidgets('soltar dentro del cuadro devuelve la marca al reposo', (
     tester,
   ) async {
     await tester.pumpWidget(const _Harness());
-    final rect = tester.getRect(padFinder());
 
-    await tester.dragFrom(restingKnob(tester), Offset(0, -rect.height * 0.7));
-    await tester.pumpAndSettle();
+    await dragMarkTo(tester, PadGeometry.rest.dx, PadGeometry.line - 0.05);
     expect(state(tester).torch, isTrue);
 
-    // El pulsador está ahora arriba a la derecha; se arrastra de vuelta.
-    final raised = restingKnob(tester).translate(0, -rect.height * 0.7 + 16);
-    await tester.dragFrom(raised, Offset(0, rect.height * 0.7));
-    await tester.pumpAndSettle();
-
-    expect(state(tester).torch, isFalse);
-  });
-
-  testWidgets('tocar una esquina lleva el pulsador a ese estado', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const _Harness());
-    final rect = tester.getRect(padFinder());
-
-    // Esquina superior izquierda: las dos funciones activas.
-    await tester.tapAt(rect.topLeft + const Offset(24, 24));
-    await tester.pumpAndSettle();
-
-    expect(state(tester).torch, isTrue);
-    expect(state(tester).beacon, isTrue);
-
-    // Esquina inferior derecha: reposo.
-    await tester.tapAt(rect.bottomRight - const Offset(24, 24));
-    await tester.pumpAndSettle();
+    // Desde donde ha quedado la marca, de vuelta al cuadro de reposo.
+    await dragMark(
+      tester,
+      Offset(PadGeometry.rest.dx, PadGeometry.torchFullAxis),
+      PadGeometry.rest,
+    );
 
     expect(state(tester).torch, isFalse);
     expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('si el padre rechaza la linterna, el pulsador vuelve al reposo', (
+  testWidgets('un arrastre corto dentro del cuadro no enciende nada', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+
+    await dragMarkTo(tester, 0.78, 0.78);
+
+    expect(state(tester).torch, isFalse);
+    expect(state(tester).beacon, isFalse);
+  });
+
+  testWidgets('sin gradación la linterna se queda en el 100 %', (tester) async {
+    await tester.pumpWidget(const _Harness(torchIsGradual: false));
+
+    // Aunque se suelte arriba del todo, donde habría atenuación.
+    await dragMarkTo(tester, PadGeometry.rest.dx, 0.05);
+
+    expect(state(tester).torch, isTrue);
+    expect(state(tester).torchLevel, closeTo(1, 0.001));
+  });
+
+  testWidgets('cambiar de banda avisa con un tic háptico', (tester) async {
+    await tester.pumpWidget(const _Harness());
+
+    // De la banda del máximo al tramo continuo, y de ahí a la del mínimo.
+    await dragMarkTo(tester, PadGeometry.rest.dx, 0.05);
+
+    expect(state(tester).zoneChanges, greaterThan(0));
+  });
+
+  testWidgets('quedarse dentro del cuadro no avisa de cambios de banda', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+
+    await dragMarkTo(tester, 0.8, 0.8);
+
+    expect(state(tester).zoneChanges, 0);
+  });
+
+  testWidgets('tocar un punto lleva la marca hasta él', (tester) async {
+    await tester.pumpWidget(const _Harness());
+
+    await tester.tapAt(at(tester, 0.05, 0.05));
+    await tester.pumpAndSettle();
+
+    // Esquina superior izquierda: faro al máximo y linterna al mínimo.
+    expect(state(tester).beacon, isTrue);
+    expect(state(tester).beaconLevel, closeTo(1, 0.001));
+    expect(state(tester).torch, isTrue);
+    expect(
+      state(tester).torchLevel,
+      closeTo(PadGeometry.minTorchIntensity, 0.001),
+    );
+  });
+
+  testWidgets('si el padre rechaza la linterna, la marca vuelve al reposo', (
     tester,
   ) async {
     await tester.pumpWidget(const _Harness(rejectTorch: true));
-    final rect = tester.getRect(padFinder());
-    final home = restingKnob(tester);
 
-    await tester.dragFrom(home, Offset(0, -rect.height * 0.7));
-    await tester.pumpAndSettle();
+    await dragMarkTo(tester, PadGeometry.rest.dx, PadGeometry.line - 0.05);
 
     expect(state(tester).torch, isFalse);
-    // Y el pulsador ha vuelto: tocarlo de nuevo vuelve a intentar encenderla.
     expect(tester.takeException(), isNull);
   });
 }

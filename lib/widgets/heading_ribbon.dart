@@ -87,7 +87,7 @@ class _AnimatedRibbonState extends State<_AnimatedRibbon> {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _unwrapped),
-      duration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 90),
       curve: Curves.easeOut,
       builder: (context, heading, child) {
         return CustomPaint(

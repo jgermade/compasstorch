@@ -108,7 +108,7 @@ void main() {
       await tester.tapAt(Offset(pad.left + 24, pad.bottom - 24));
       await tester.pumpAndSettle();
 
-      expect(services.maxBrightness, isTrue);
+      expect(services.screenBrightness, isNotNull);
       expect(services.keepScreenOn, isTrue);
 
       final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));

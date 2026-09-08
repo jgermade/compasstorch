@@ -25,7 +25,9 @@ class CompassDial extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final diameter = math.min(constraints.maxWidth, constraints.maxHeight);
+        // Un pelín más pequeña que el hueco disponible, para que respire.
+        final diameter =
+            math.min(constraints.maxWidth, constraints.maxHeight) * 0.88;
         return Center(
           child: SizedBox(
             width: diameter,
@@ -78,7 +80,7 @@ class _RotatingCardState extends State<_RotatingCard> {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _unwrapped),
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 110),
       curve: Curves.easeOut,
       builder: (context, angle, child) {
         return CustomPaint(
