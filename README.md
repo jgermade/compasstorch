@@ -25,8 +25,8 @@ La pantalla se divide en dos mitades:
   arriba a la derecha y el modo faro abajo a la izquierda.
 
   - Pasar la marca **por encima de la línea horizontal** enciende la linterna
-    **al 100 %**. Si el dispositivo permite graduarla, seguir subiendo la
-    atenúa, hasta el mínimo pegada al borde superior.
+    **al mínimo**. Si el dispositivo permite graduarla, seguir subiendo la
+    sube, hasta el 100 % pegada al borde superior.
   - Pasarla **a la izquierda de la vertical** activa el **modo faro** (tema
     claro y pantalla que no se apaga) con el brillo al mínimo. Seguir hacia la
     izquierda lo sube, hasta el 100 % pegada al borde izquierdo.
@@ -37,9 +37,9 @@ La pantalla se divide en dos mitades:
   banda de iluminación se centra en ella. También se puede tocar directamente
   el punto de destino.
 
-  El sentido de la gradación está invertido entre los dos a propósito: de una
-  linterna se quiere todo el brillo nada más encenderla, mientras que del faro
-  se quiere ir subiendo.
+  Los dos ejes gradúan en el mismo sentido: cruzar la línea enciende al
+  mínimo, y alejarse de ella sube la luz. Así el mando se lee igual mires el
+  eje que mires.
 
   Cada encendido y cada apagado se confirma con una **vibración háptica**: un
   golpe más marcado al activar y otro más suave al desactivar, para notar el
@@ -202,11 +202,11 @@ flutter run
 
 Los tests cubren el cálculo de la orientación con vectores conocidos (teléfono
 tumbado y levantado apuntando a cada rumbo, caída libre, campo alineado con la
-gravedad), la geometría del mando en `PadGeometry` (bandas, gradación invertida,
-ida y vuelta entre posición y nivel, y dónde se queda la marca al soltarla), los
-gestos sobre el mando, y la lógica de los controles —jerarquía de vibraciones,
-gradación, suelo de brillo y coalescencia de envíos— con un doble de
-`DeviceServices`, sin tocar los canales de plataforma.
+gravedad), la geometría del mando en `PadGeometry` (bandas, sentido de la
+gradación, ida y vuelta entre posición y nivel, y dónde se queda la marca al
+soltarla), los gestos sobre el mando, y la lógica de los controles —jerarquía
+de vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un
+doble de `DeviceServices`, sin tocar los canales de plataforma.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
 una función pura, comprobable sin simular gestos.

@@ -110,20 +110,25 @@ void main() {
     expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('cruzar la línea hacia arriba enciende la linterna al 100 %', (
+  testWidgets('cruzar la línea hacia arriba enciende la linterna al mínimo', (
     tester,
   ) async {
     await tester.pumpWidget(const _Harness());
 
-    // Justo por encima de la línea horizontal: dentro de la banda del máximo.
+    // Justo por encima de la línea horizontal: dentro de la banda del mínimo.
     await dragMarkTo(tester, PadGeometry.rest.dx, PadGeometry.line - 0.05);
 
     expect(state(tester).torch, isTrue);
-    expect(state(tester).torchLevel, closeTo(1, 0.001));
+    expect(
+      state(tester).torchLevel,
+      closeTo(PadGeometry.minTorchIntensity, 0.001),
+    );
     expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('seguir subiendo atenúa la linterna', (tester) async {
+  testWidgets('seguir subiendo sube la intensidad de la linterna', (
+    tester,
+  ) async {
     await tester.pumpWidget(const _Harness());
 
     await dragMarkTo(tester, PadGeometry.rest.dx, 0.35);
@@ -131,13 +136,10 @@ void main() {
 
     await dragMarkTo(tester, PadGeometry.rest.dx, 0.05);
 
+    expect(middle, greaterThan(PadGeometry.minTorchIntensity));
     expect(middle, lessThan(1));
-    expect(state(tester).torchLevel, lessThan(middle));
-    expect(
-      state(tester).torchLevel,
-      closeTo(PadGeometry.minTorchIntensity, 0.001),
-    );
-    // Sigue encendida, solo que al mínimo.
+    expect(state(tester).torchLevel, greaterThan(middle));
+    expect(state(tester).torchLevel, closeTo(1, 0.001));
     expect(state(tester).torch, isTrue);
   });
 
@@ -188,7 +190,7 @@ void main() {
     // Desde donde ha quedado la marca, de vuelta al cuadro de reposo.
     await dragMark(
       tester,
-      Offset(PadGeometry.rest.dx, PadGeometry.torchFullAxis),
+      Offset(PadGeometry.rest.dx, PadGeometry.torchDimAxis),
       PadGeometry.rest,
     );
 
@@ -242,14 +244,11 @@ void main() {
     await tester.tapAt(at(tester, 0.05, 0.05));
     await tester.pumpAndSettle();
 
-    // Esquina superior izquierda: faro al máximo y linterna al mínimo.
+    // Esquina superior izquierda: los dos al máximo.
     expect(state(tester).beacon, isTrue);
     expect(state(tester).beaconLevel, closeTo(1, 0.001));
     expect(state(tester).torch, isTrue);
-    expect(
-      state(tester).torchLevel,
-      closeTo(PadGeometry.minTorchIntensity, 0.001),
-    );
+    expect(state(tester).torchLevel, closeTo(1, 0.001));
   });
 
   testWidgets('si el padre rechaza la linterna, la marca vuelve al reposo', (

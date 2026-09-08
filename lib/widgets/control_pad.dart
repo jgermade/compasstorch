@@ -15,8 +15,9 @@ import 'pad_geometry.dart';
 /// horizontal enciende la linterna, y pasarla a la izquierda de la vertical
 /// activa el modo faro.
 ///
-/// La posición dentro de cada eje gradúa la luz. Ver [PadGeometry] para el
-/// reparto de bandas, que está invertido entre los dos controles.
+/// La posición dentro de cada eje gradúa la luz: los dos empiezan al mínimo al
+/// cruzar su línea y suben al alejarse de ella. Ver [PadGeometry] para el
+/// reparto de bandas.
 class ControlPad extends StatefulWidget {
   const ControlPad({
     super.key,
@@ -85,7 +86,9 @@ class _ControlPadState extends State<ControlPad>
     final y = widget.torchOn
         ? (widget.torchIsGradual
               ? PadGeometry.torchAxisFor(widget.torchIntensity)
-              : PadGeometry.torchFullAxis)
+              // Sin gradación la altura no dice nada: la marca se queda nada
+              // más pasada la línea.
+              : PadGeometry.torchDimAxis)
         : PadGeometry.rest.dy;
     return Offset(x, y);
   }
@@ -187,7 +190,9 @@ class _ControlPadState extends State<ControlPad>
 
     widget.onTorchChanged(
       PadGeometry.torchOn(position.dy),
-      PadGeometry.torchIntensity(position.dy),
+      // Donde el flash no se puede regular solo hay un nivel, y es el máximo:
+      // la altura de la marca no lo cambia.
+      widget.torchIsGradual ? PadGeometry.torchIntensity(position.dy) : 1,
     );
     widget.onBeaconChanged(
       PadGeometry.beaconOn(position.dx),

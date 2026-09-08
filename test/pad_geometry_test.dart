@@ -22,32 +22,59 @@ void main() {
     });
   });
 
-  group('linterna: cruzar da el 100 % y subir atenúa', () {
-    test('nada más cruzar la línea está al máximo', () {
-      expect(PadGeometry.torchIntensity(line - 0.01), 1);
-    });
-
-    test('en toda la banda pegada a la línea sigue al máximo', () {
-      expect(PadGeometry.torchIntensity(line - band + 0.01), 1);
-    });
-
-    test('subir más allá de la banda la va atenuando', () {
-      final justAbove = PadGeometry.torchIntensity(line - band - 0.05);
-      final higher = PadGeometry.torchIntensity(line - band - 0.2);
-
-      expect(justAbove, lessThan(1));
-      expect(higher, lessThan(justAbove));
-    });
-
-    test('arriba del todo queda en la intensidad mínima', () {
+  group('linterna: cruzar da el mínimo y subir sube la intensidad', () {
+    test('nada más cruzar la línea está al mínimo', () {
       expect(
-        PadGeometry.torchIntensity(0),
+        PadGeometry.torchIntensity(line - 0.01),
         closeTo(PadGeometry.minTorchIntensity, 0.001),
       );
     });
 
+    test('en toda la banda pegada a la línea sigue al mínimo', () {
+      expect(
+        PadGeometry.torchIntensity(line - band + 0.01),
+        closeTo(PadGeometry.minTorchIntensity, 0.001),
+      );
+    });
+
+    test('subir más allá de la banda la va subiendo', () {
+      final justAbove = PadGeometry.torchIntensity(line - band - 0.05);
+      final higher = PadGeometry.torchIntensity(line - band - 0.2);
+
+      expect(justAbove, greaterThan(PadGeometry.minTorchIntensity));
+      expect(higher, greaterThan(justAbove));
+      expect(higher, lessThan(1));
+    });
+
+    test('arriba del todo queda al 100 %', () {
+      expect(PadGeometry.torchIntensity(0), 1);
+      expect(PadGeometry.torchIntensity(band), 1);
+    });
+
     test('apagada por debajo de la línea', () {
       expect(PadGeometry.torchIntensity(line + 0.01), 0);
+    });
+
+    test('los dos ejes suben al alejarse de su línea', () {
+      // Es la coherencia entre los dos controles: misma distancia a la línea,
+      // mismo sentido de la gradación.
+      double torchAt(double distance) =>
+          PadGeometry.torchIntensity(line - distance);
+      double beaconAt(double distance) =>
+          PadGeometry.beaconLevel(line - distance);
+
+      for (final (near, far) in [(0.1, 0.3), (0.3, 0.5)]) {
+        expect(
+          torchAt(far),
+          greaterThan(torchAt(near)),
+          reason: 'linterna de $near a $far',
+        );
+        expect(
+          beaconAt(far),
+          greaterThan(beaconAt(near)),
+          reason: 'faro de $near a $far',
+        );
+      }
     });
   });
 
@@ -107,8 +134,12 @@ void main() {
       expect(settle(const Offset(0.02, 0.4)).dx, PadGeometry.beaconFullAxis);
     });
 
+    test('en la banda del mínimo de la linterna se centra en ella', () {
+      expect(settle(Offset(0.4, line - 0.02)).dy, PadGeometry.torchDimAxis);
+    });
+
     test('en la banda del 100 % de la linterna se centra en ella', () {
-      expect(settle(Offset(0.4, line - 0.02)).dy, PadGeometry.torchFullAxis);
+      expect(settle(const Offset(0.4, 0.02)).dy, PadGeometry.torchFullAxis);
     });
 
     test('a media altura se queda donde se ha soltado', () {
@@ -123,9 +154,9 @@ void main() {
       expect(settled.dy, 0.2);
     });
 
-    test('sin gradación la linterna salta a la banda del 100 %', () {
+    test('sin gradación la marca se queda nada más pasada la línea', () {
       final settled = settle(const Offset(0.9, 0.2), gradual: false);
-      expect(settled.dy, PadGeometry.torchFullAxis);
+      expect(settled.dy, PadGeometry.torchDimAxis);
     });
   });
 }
