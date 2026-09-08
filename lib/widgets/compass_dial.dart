@@ -2,22 +2,72 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'cardinals.dart';
+import '../l10n/app_strings.dart';
+import 'bearings.dart';
 import 'readout.dart';
 
 /// Rosa de los vientos clásica: la carta gira y una aguja fija arriba marca el
 /// rumbo. Es la vista que se usa con el teléfono tumbado.
-class CompassDial extends StatelessWidget {
-  const CompassDial({super.key, required this.heading});
+class CompassDial extends StatefulWidget {
+  const CompassDial({
+    super.key,
+    required this.heading,
+    this.levelX = 0,
+    this.levelY = 0,
+    this.onLevelled,
+  });
 
   /// Rumbo magnético del borde superior del teléfono, o `null` si todavía no
   /// hay lectura del magnetómetro.
   final double? heading;
 
+  /// Inclinación del teléfono sobre los ejes de la pantalla, de -1 a 1. Mueve
+  /// la burbuja de nivel del centro.
+  final double levelX;
+  final double levelY;
+
+  /// La burbuja acaba de centrarse. Se avisa solo del cambio, para poder
+  /// confirmarlo con un toque háptico sin repetirlo en cada lectura.
+  final VoidCallback? onLevelled;
+
+  /// Inclinación, en fracción de la vertical, que desplaza la burbuja hasta el
+  /// borde: 0,15 son unos 8,5°.
+  static const double levelSpan = 0.15;
+
+  /// Por debajo de esta inclinación (algo más de 1°) se da por nivelado, y no
+  /// deja de estarlo hasta pasar de [levelRelease]: sin esa holgura el temblor
+  /// de la mano encendería y apagaría el aviso sin parar.
+  static const double levelTolerance = 0.02;
+  static const double levelRelease = 0.035;
+
+  @override
+  State<CompassDial> createState() => _CompassDialState();
+}
+
+class _CompassDialState extends State<CompassDial> {
+  late bool _levelled = _tiltFor(widget) < CompassDial.levelTolerance;
+
+  static double _tiltFor(CompassDial dial) {
+    return math.sqrt(dial.levelX * dial.levelX + dial.levelY * dial.levelY);
+  }
+
+  @override
+  void didUpdateWidget(CompassDial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final tilt = _tiltFor(widget);
+    final was = _levelled;
+    _levelled = was
+        ? tilt < CompassDial.levelRelease
+        : tilt < CompassDial.levelTolerance;
+    // Sin rumbo no se ve la burbuja: no hay nada que confirmar.
+    if (_levelled && !was && widget.heading != null) widget.onLevelled?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final value = heading;
+    final strings = AppStrings.of(context);
+    final value = widget.heading;
 
     if (value == null) {
       return const SensorPlaceholder();
@@ -35,16 +85,36 @@ class CompassDial extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                _RotatingCard(heading: value, theme: theme),
-                CustomPaint(
-                  size: Size.square(diameter),
-                  painter: _NeedlePainter(
-                    color: theme.colorScheme.primary,
-                    hubColor: theme.colorScheme.surface,
-                    hubBorder: theme.colorScheme.outline,
+                _RotatingCard(
+                  heading: value,
+                  theme: theme,
+                  cardinals: strings.cardinals,
+                ),
+                Semantics(
+                  label: _levelled ? strings.levelCentered : strings.levelOff,
+                  child: CustomPaint(
+                    size: Size.square(diameter),
+                    painter: _HubPainter(
+                      color: theme.colorScheme.primary,
+                      hubColor: theme.colorScheme.surface,
+                      hubBorder: theme.colorScheme.outline,
+                      // La burbuja se va hacia el lado que se levanta, como en
+                      // un nivel de verdad: la pantalla sube por donde ella va.
+                      level: Offset(
+                        (widget.levelX / CompassDial.levelSpan).clamp(
+                          -1.0,
+                          1.0,
+                        ),
+                        (-widget.levelY / CompassDial.levelSpan).clamp(
+                          -1.0,
+                          1.0,
+                        ),
+                      ),
+                      levelled: _levelled,
+                    ),
                   ),
                 ),
-                HeadingReadout(heading: value, label: 'rumbo'),
+                HeadingReadout(heading: value),
               ],
             ),
           ),
@@ -57,10 +127,15 @@ class CompassDial extends StatelessWidget {
 /// Anima el giro de la carta por el camino más corto, sin dar la vuelta entera
 /// al cruzar el norte.
 class _RotatingCard extends StatefulWidget {
-  const _RotatingCard({required this.heading, required this.theme});
+  const _RotatingCard({
+    required this.heading,
+    required this.theme,
+    required this.cardinals,
+  });
 
   final double heading;
   final ThemeData theme;
+  final List<String> cardinals;
 
   @override
   State<_RotatingCard> createState() => _RotatingCardState();
@@ -89,6 +164,7 @@ class _RotatingCardState extends State<_RotatingCard> {
             rotation: -angle * math.pi / 180,
             scheme: widget.theme.colorScheme,
             textStyle: widget.theme.textTheme.titleMedium!,
+            cardinals: widget.cardinals,
           ),
         );
       },
@@ -101,11 +177,13 @@ class _DialPainter extends CustomPainter {
     required this.rotation,
     required this.scheme,
     required this.textStyle,
+    required this.cardinals,
   });
 
   final double rotation;
   final ColorScheme scheme;
   final TextStyle textStyle;
+  final List<String> cardinals;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -150,12 +228,12 @@ class _DialPainter extends CustomPainter {
       );
     }
 
-    for (var index = 0; index < kCardinalNames.length; index++) {
+    for (var index = 0; index < cardinals.length; index++) {
       final degrees = index * 45.0;
       final isNorth = index == 0;
       final label = TextPainter(
         text: TextSpan(
-          text: kCardinalNames[index],
+          text: cardinals[index],
           style: textStyle.copyWith(
             color: isNorth ? scheme.primary : scheme.onSurface,
             fontWeight: isNorth ? FontWeight.w800 : FontWeight.w600,
@@ -207,34 +285,75 @@ class _DialPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DialPainter oldDelegate) =>
-      oldDelegate.rotation != rotation || oldDelegate.scheme != scheme;
+      oldDelegate.rotation != rotation ||
+      oldDelegate.scheme != scheme ||
+      oldDelegate.cardinals != cardinals;
 }
 
-/// Marca fija en la parte alta del dial: señala el rumbo actual.
-class _NeedlePainter extends CustomPainter {
-  _NeedlePainter({
+/// Lo que no gira con la carta: la marca fija de la parte alta, la tapa
+/// central y, dentro de ella, la burbuja de nivel.
+///
+/// La burbuja es una mancha difuminada que se pinta **debajo** de la lectura y
+/// no llega a tocarla: así indica el nivel sin partir los grados ni el rumbo.
+class _HubPainter extends CustomPainter {
+  _HubPainter({
     required this.color,
     required this.hubColor,
     required this.hubBorder,
+    required this.level,
+    required this.levelled,
   });
 
   final Color color;
   final Color hubColor;
   final Color hubBorder;
 
+  /// Desplazamiento de la burbuja, de -1 a 1 en cada eje de la pantalla.
+  final Offset level;
+
+  /// El teléfono está horizontal: se resalta el borde de la tapa.
+  final bool levelled;
+
+  /// Radio de la tapa central, en fracción del radio del dial.
+  static const double hubFraction = 0.40;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final radius = size.shortestSide / 2;
+    final hubRadius = radius * hubFraction;
 
     // Tapa central: la lectura numérica va encima de la aguja.
-    canvas.drawCircle(center, radius * 0.40, Paint()..color = hubColor);
+    canvas.drawCircle(center, hubRadius, Paint()..color = hubColor);
+
+    final bubbleRadius = hubRadius * 0.66;
+    final travel = hubRadius - bubbleRadius;
+    final bubble = center + Offset(level.dx * travel, level.dy * travel);
+    final area = Rect.fromCircle(center: bubble, radius: bubbleRadius);
+    canvas.drawCircle(
+      bubble,
+      bubbleRadius,
+      Paint()
+        ..shader = RadialGradient(
+          // El borde se apaga poco a poco: así la mancha se ve entera y no
+          // parte los grados ni el rumbo, que van encima.
+          colors: [
+            color.withValues(alpha: levelled ? 0.40 : 0.32),
+            color.withValues(alpha: levelled ? 0.30 : 0.24),
+            color.withValues(alpha: 0),
+          ],
+          stops: const [0, 0.55, 1],
+        ).createShader(area),
+    );
+
+    // El borde de la tapa se enciende cuando la burbuja está centrada.
     canvas.drawCircle(
       center,
-      radius * 0.40,
+      hubRadius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..color = hubBorder.withValues(alpha: 0.35),
+        ..strokeWidth = levelled ? 2.5 : 1.5
+        ..color = levelled ? color : hubBorder.withValues(alpha: 0.55),
     );
 
     final tip = Offset(center.dx, center.dy - radius + 2);
@@ -247,6 +366,9 @@ class _NeedlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_NeedlePainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.hubColor != hubColor;
+  bool shouldRepaint(_HubPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.hubColor != hubColor ||
+      oldDelegate.level != level ||
+      oldDelegate.levelled != levelled;
 }

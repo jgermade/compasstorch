@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/controls_controller.dart';
+import '../l10n/app_strings.dart';
 import '../services/orientation_service.dart';
 import '../widgets/compass_dial.dart';
 import '../widgets/control_pad.dart';
@@ -54,9 +55,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onControllerChanged() {
     final error = widget.controller.takeError();
     if (error == null || !mounted) return;
+    final strings = AppStrings.of(context);
+    final message = switch (error) {
+      ControlsError.torchUnavailable => strings.torchUnavailable,
+      ControlsError.torchOffFailed => strings.torchOffFailed,
+      ControlsError.beaconPartial => strings.beaconPartial,
+    };
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(error)));
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -85,6 +92,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? CompassDial(
                               key: const ValueKey('dial'),
                               heading: reading?.headingTop,
+                              levelX: reading?.levelX ?? 0,
+                              levelY: reading?.levelY ?? 0,
+                              onLevelled: widget.controller.pulseLevelled,
                             )
                           : HeadingRibbon(
                               key: const ValueKey('ribbon'),
@@ -123,7 +133,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Fila superior: qué vista está activa y el estado de los dos controles.
+/// Fila superior: el modo faro en una esquina, la linterna en la otra y, en
+/// medio, el icono de la vista que está activa.
 class _StatusBar extends StatelessWidget {
   const _StatusBar({required this.controller, required this.pose});
 
@@ -133,6 +144,8 @@ class _StatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = AppStrings.of(context);
+    final flat = pose == DevicePose.flat;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -141,41 +154,48 @@ class _StatusBar extends StatelessWidget {
         builder: (context, child) {
           return Row(
             children: [
-              Icon(
-                pose == DevicePose.flat
-                    ? Icons.explore_rounded
-                    : Icons.straighten_rounded,
-                size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  pose == DevicePose.flat
-                      ? 'En horizontal · brújula'
-                      : 'En vertical · regla de rumbos',
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _StateChip(
+                    icon: Icons.wb_sunny_rounded,
+                    on: controller.beaconOn,
+                    color: theme.colorScheme.secondary,
+                    semanticsLabel: strings.beaconState(
+                      on: controller.beaconOn,
+                      percent: (controller.beaconLevel * 100).round(),
+                    ),
+                    level: controller.beaconLevel,
                   ),
                 ),
               ),
-              _StateChip(
-                icon: Icons.flashlight_on_rounded,
-                on: controller.torchOn,
-                color: theme.colorScheme.primary,
-                label: 'Linterna',
-                level: controller.torchIsGradual
-                    ? controller.torchIntensity
-                    : null,
+              Semantics(
+                label: flat ? strings.compassView : strings.bearingRulerView,
+                child: Icon(
+                  flat ? Icons.explore_rounded : Icons.straighten_rounded,
+                  size: 18,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                ),
               ),
-              const SizedBox(width: 8),
-              _StateChip(
-                icon: Icons.wb_sunny_rounded,
-                on: controller.beaconOn,
-                color: theme.colorScheme.secondary,
-                label: 'Faro',
-                level: controller.beaconLevel,
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _StateChip(
+                    icon: Icons.flashlight_on_rounded,
+                    on: controller.torchOn,
+                    color: theme.colorScheme.primary,
+                    semanticsLabel: strings.torchState(
+                      on: controller.torchOn,
+                      percent: controller.torchIsGradual
+                          ? (controller.torchIntensity * 100).round()
+                          : null,
+                    ),
+                    level: controller.torchIsGradual
+                        ? controller.torchIntensity
+                        : null,
+                    textFirst: true,
+                  ),
+                ),
               ),
             ],
           );
@@ -190,57 +210,63 @@ class _StateChip extends StatelessWidget {
     required this.icon,
     required this.on,
     required this.color,
-    required this.label,
+    required this.semanticsLabel,
     this.level,
+    this.textFirst = false,
   });
 
   final IconData icon;
   final bool on;
   final Color color;
-  final String label;
+
+  /// Cómo lo cuenta un lector de pantalla; en la pantalla solo se ve el icono
+  /// y, si el control se gradúa, el porcentaje.
+  final String semanticsLabel;
 
   /// Nivel de 0 a 1, o `null` si este control no se puede graduar.
   final double? level;
+
+  /// El porcentaje va a la izquierda del icono, para el chip de la derecha.
+  final bool textFirst;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final percentage = level == null ? null : (level! * 100).round();
-    final state = on
-        ? (percentage == null ? 'encendida' : 'al $percentage por ciento')
-        : 'apagada';
+
+    final badge = AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: on ? color : scheme.onSurface.withValues(alpha: 0.08),
+      ),
+      child: Icon(
+        icon,
+        size: 16,
+        color: on ? Colors.black87 : scheme.onSurface.withValues(alpha: 0.45),
+      ),
+    );
+
+    final text = on && percentage != null
+        ? Text(
+            '$percentage%',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        : null;
 
     return Semantics(
-      label: '$label $state',
+      label: semanticsLabel,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: on ? color : scheme.onSurface.withValues(alpha: 0.08),
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: on
-                  ? Colors.black87
-                  : scheme.onSurface.withValues(alpha: 0.45),
-            ),
-          ),
-          if (on && percentage != null) ...[
-            const SizedBox(width: 4),
-            Text(
-              '$percentage%',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          if (textFirst && text != null) ...[text, const SizedBox(width: 4)],
+          badge,
+          if (!textFirst && text != null) ...[const SizedBox(width: 4), text],
         ],
       ),
     );

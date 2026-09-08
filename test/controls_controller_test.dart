@@ -37,7 +37,7 @@ void main() {
 
     expect(controller.torchOn, isFalse);
     expect(services.torchOn, isFalse);
-    expect(controller.takeError(), contains('linterna'));
+    expect(controller.takeError(), ControlsError.torchUnavailable);
     // El aviso se consume una sola vez.
     expect(controller.takeError(), isNull);
   });

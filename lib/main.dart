@@ -2,8 +2,10 @@ import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'controllers/controls_controller.dart';
+import 'l10n/app_strings.dart';
 import 'screens/home_screen.dart';
 import 'services/device_services.dart';
 import 'services/orientation_service.dart';
@@ -79,6 +81,15 @@ class _CompassTorchAppState extends State<CompassTorchApp> {
         return MaterialApp(
           title: 'CompassTorch',
           debugShowCheckedModeBanner: false,
+          // El inglés encabeza la lista, así que es el idioma de reserva
+          // cuando el sistema pide uno que no está traducido.
+          supportedLocales: AppStrings.supportedLocales,
+          localizationsDelegates: const [
+            AppStrings.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           // El tema lo manda la aplicación, no el ajuste del sistema: oscuro
           // siempre, salvo con el modo faro activo.
           themeMode: ThemeMode.light,

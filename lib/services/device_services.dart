@@ -63,6 +63,7 @@ class PlatformDeviceServices implements DeviceServices {
     return switch (cue) {
       HapticCue.turnedOn => HapticFeedback.heavyImpact(),
       HapticCue.turnedOff => HapticFeedback.mediumImpact(),
+      HapticCue.levelled => HapticFeedback.lightImpact(),
       HapticCue.zoneChanged => HapticFeedback.selectionClick(),
     };
   }

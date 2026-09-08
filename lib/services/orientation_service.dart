@@ -19,6 +19,8 @@ class OrientationReading {
     required this.headingCamera,
     required this.elevation,
     required this.tilt,
+    this.levelX = 0,
+    this.levelY = 0,
   });
 
   /// Rumbo magnético (0-360°, 0 = norte) hacia el que mira el borde superior
@@ -35,6 +37,13 @@ class OrientationReading {
 
   /// Inclinación del plano del teléfono: 0° tumbado, 90° vertical.
   final double tilt;
+
+  /// Hacia dónde está levantado el teléfono, para el nivel de burbuja: son las
+  /// componentes de la vertical del mundo sobre los ejes X (derecha) e Y
+  /// (arriba) de la pantalla, así que valen 0 con el teléfono bien tumbado y
+  /// ±1 con la pantalla de canto. Equivalen al seno del ángulo inclinado.
+  final double levelX;
+  final double levelY;
 
   /// Rumbo que corresponde a la postura indicada.
   double headingFor(DevicePose pose) =>
@@ -176,6 +185,8 @@ class SensorOrientationService implements OrientationService {
       headingCamera: cameraBearing,
       elevation: elevation,
       tilt: tilt,
+      levelX: a.x,
+      levelY: a.y,
     );
   }
 

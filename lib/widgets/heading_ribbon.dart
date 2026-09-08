@@ -1,8 +1,7 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
-import 'cardinals.dart';
+import '../l10n/app_strings.dart';
+import 'bearings.dart';
 import 'readout.dart';
 
 /// Regla de rumbos: una cinta de líneas verticales que se desplaza según hacia
@@ -33,9 +32,7 @@ class HeadingRibbon extends StatelessWidget {
     final value = heading;
 
     if (value == null) {
-      return const SensorPlaceholder(
-        hint: 'Levanta el teléfono y muévelo dibujando un ocho para calibrar.',
-      );
+      return const SensorPlaceholder(upright: true);
     }
 
     return Padding(
@@ -43,19 +40,25 @@ class HeadingRibbon extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          HeadingReadout(heading: value, label: 'apuntando a'),
+          HeadingReadout(heading: value),
           const SizedBox(height: 18),
           Flexible(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: maxRibbonHeight),
-              child: SizedBox(
-                width: double.infinity,
-                child: _AnimatedRibbon(heading: value, theme: theme),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _AnimatedRibbon(heading: value, theme: theme),
+                  ),
+                  const SizedBox(width: 14),
+                  // La elevación se lee de arriba abajo, como el paisaje al
+                  // que se apunta, así que va de pie al lado de la regla.
+                  _ElevationBar(elevation: elevation),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          _ElevationBar(elevation: elevation),
         ],
       ),
     );
@@ -85,6 +88,7 @@ class _AnimatedRibbonState extends State<_AnimatedRibbon> {
 
   @override
   Widget build(BuildContext context) {
+    final cardinals = AppStrings.of(context).cardinals;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _unwrapped),
       duration: const Duration(milliseconds: 90),
@@ -97,6 +101,7 @@ class _AnimatedRibbonState extends State<_AnimatedRibbon> {
             scheme: widget.theme.colorScheme,
             degreeStyle: widget.theme.textTheme.labelSmall!,
             cardinalStyle: widget.theme.textTheme.titleMedium!,
+            cardinals: cardinals,
           ),
         );
       },
@@ -110,12 +115,14 @@ class _RibbonPainter extends CustomPainter {
     required this.scheme,
     required this.degreeStyle,
     required this.cardinalStyle,
+    required this.cardinals,
   });
 
   final double heading;
   final ColorScheme scheme;
   final TextStyle degreeStyle;
   final TextStyle cardinalStyle;
+  final List<String> cardinals;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -163,7 +170,7 @@ class _RibbonPainter extends CustomPainter {
       if (isCardinal) {
         _text(
           canvas,
-          cardinalFor(normalized.toDouble()),
+          cardinals[(normalized ~/ 45) % 8],
           Offset(x, baseline + 6),
           cardinalStyle.copyWith(
             color: normalized == 0 ? scheme.primary : scheme.onSurface,
@@ -223,74 +230,89 @@ class _RibbonPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RibbonPainter oldDelegate) =>
-      oldDelegate.heading != heading || oldDelegate.scheme != scheme;
+      oldDelegate.heading != heading ||
+      oldDelegate.scheme != scheme ||
+      oldDelegate.cardinals != cardinals;
 }
 
-/// Indicador de cuánto se apunta por encima o por debajo del horizonte.
+/// Indicador de cuánto se apunta por encima o por debajo del horizonte. Va de
+/// pie: arriba +90°, en medio el horizonte y abajo -90°.
 class _ElevationBar extends StatelessWidget {
   const _ElevationBar({required this.elevation});
 
   final double elevation;
 
+  /// Ancho de la columna, con sitio para la cifra debajo de la barra.
+  static const double width = 48;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // -90..90 -> 0..1
-    final fraction = ((elevation.clamp(-90.0, 90.0) + 90) / 180).toDouble();
+    final strings = AppStrings.of(context);
+    final scheme = theme.colorScheme;
+    // 90..-90 -> 0..1, contando desde arriba.
+    final fraction = ((90 - elevation.clamp(-90.0, 90.0)) / 180).toDouble();
     final rounded = elevation.round();
-    final sign = rounded > 0 ? '+' : '';
+    final degrees = '${rounded > 0 ? '+' : ''}$rounded°';
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: 22,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.15,
+    return SizedBox(
+      width: width,
+      child: Semantics(
+        label: strings.elevation(degrees),
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Container(
+                        width: 4,
+                        decoration: BoxDecoration(
+                          color: scheme.onSurface.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: 1,
-                      height: 12,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  Positioned(
-                    left: math.max(0, fraction * constraints.maxWidth - 6),
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.secondary,
-                        shape: BoxShape.circle,
+                      // El horizonte, en el centro de la barra.
+                      Align(
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 16,
+                          height: 1,
+                          color: scheme.onSurface.withValues(alpha: 0.4),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+                      Positioned(
+                        top: (fraction * constraints.maxHeight - 6).clamp(
+                          0.0,
+                          constraints.maxHeight - 12,
+                        ),
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: scheme.secondary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              degrees,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurface.withValues(alpha: 0.6),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
         ),
-        Text(
-          'elevación $sign$rounded°',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            letterSpacing: 1.2,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

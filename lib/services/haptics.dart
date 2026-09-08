@@ -10,6 +10,10 @@ enum HapticCue {
   /// Un control se ha apagado.
   turnedOff,
 
+  /// El teléfono ha quedado horizontal y la burbuja de nivel se ha centrado.
+  /// Un toque suave: confirma sin llamar la atención como un encendido.
+  levelled,
+
   /// La marca ha entrado o salido de una banda de iluminación. Un tic apenas
   /// perceptible.
   zoneChanged,
