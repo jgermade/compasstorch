@@ -73,10 +73,14 @@ void main() {
 
   group('casos degenerados', () {
     test('sin lecturas todavía no hay orientación', () {
-      expect(readingFromVectors(gravity: const [0, 0, g], magneticField: null),
-          isNull);
-      expect(readingFromVectors(gravity: null, magneticField: const [0, 20, -40]),
-          isNull);
+      expect(
+        readingFromVectors(gravity: const [0, 0, g], magneticField: null),
+        isNull,
+      );
+      expect(
+        readingFromVectors(gravity: null, magneticField: const [0, 20, -40]),
+        isNull,
+      );
     });
 
     test('en caída libre no se puede orientar', () {

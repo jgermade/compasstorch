@@ -17,40 +17,39 @@ class AppColors {
 
 /// Tema por defecto: oscuro, pensado para no deslumbrar de noche.
 ThemeData buildDarkTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.torch,
-    brightness: Brightness.dark,
-  ).copyWith(
-    surface: AppColors.darkBackground,
-    primary: AppColors.torch,
-    secondary: AppColors.beacon,
-    outline: AppColors.darkOutline,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.torch,
+        brightness: Brightness.dark,
+      ).copyWith(
+        surface: AppColors.darkBackground,
+        primary: AppColors.torch,
+        secondary: AppColors.beacon,
+        outline: AppColors.darkOutline,
+      );
 
-  return _base(scheme).copyWith(
-    scaffoldBackgroundColor: AppColors.darkBackground,
-  );
+  return _base(scheme)
+      .copyWith(scaffoldBackgroundColor: AppColors.darkBackground);
 }
 
 /// Tema del "modo faro": blanco puro para que la pantalla emita el máximo
 /// de luz posible cuando se combina con el brillo al 100 %.
 ThemeData buildBeaconTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.beacon,
-    brightness: Brightness.light,
-  ).copyWith(
-    surface: Colors.white,
-    onSurface: const Color(0xFF10161C),
-    // Mismos papeles que en el tema oscuro, oscurecidos para que contrasten
-    // sobre blanco: primary es la linterna y secondary el modo faro.
-    primary: const Color(0xFFB26A00),
-    secondary: const Color(0xFF00778A),
-    outline: const Color(0xFFB9C4CE),
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.beacon,
+        brightness: Brightness.light,
+      ).copyWith(
+        surface: Colors.white,
+        onSurface: const Color(0xFF10161C),
+        // Mismos papeles que en el tema oscuro, oscurecidos para que contrasten
+        // sobre blanco: primary es la linterna y secondary el modo faro.
+        primary: const Color(0xFFB26A00),
+        secondary: const Color(0xFF00778A),
+        outline: const Color(0xFFB9C4CE),
+      );
 
-  return _base(scheme).copyWith(
-    scaffoldBackgroundColor: Colors.white,
-  );
+  return _base(scheme).copyWith(scaffoldBackgroundColor: Colors.white);
 }
 
 ThemeData _base(ColorScheme scheme) {

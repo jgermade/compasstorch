@@ -135,13 +135,17 @@ class _DialPainter extends CustomPainter {
       final length = isMajor
           ? radius * 0.12
           : isMedium
-              ? radius * 0.08
-              : radius * 0.045;
+          ? radius * 0.08
+          : radius * 0.045;
       final angle = (degrees - 90) * math.pi / 180;
       final outer = Offset(math.cos(angle), math.sin(angle)) * (radius - 4);
-      final inner = Offset(math.cos(angle), math.sin(angle)) *
-          (radius - 4 - length);
-      canvas.drawLine(inner, outer, isMajor || isMedium ? majorTick : minorTick);
+      final inner =
+          Offset(math.cos(angle), math.sin(angle)) * (radius - 4 - length);
+      canvas.drawLine(
+        inner,
+        outer,
+        isMajor || isMedium ? majorTick : minorTick,
+      );
     }
 
     for (var index = 0; index < kCardinalNames.length; index++) {
@@ -161,7 +165,8 @@ class _DialPainter extends CustomPainter {
       )..layout();
 
       final angle = (degrees - 90) * math.pi / 180;
-      final position = Offset(math.cos(angle), math.sin(angle)) * (radius * 0.76);
+      final position =
+          Offset(math.cos(angle), math.sin(angle)) * (radius * 0.76);
       canvas.save();
       canvas.translate(position.dx, position.dy);
       // La carta gira con las letras, como en una brújula real.

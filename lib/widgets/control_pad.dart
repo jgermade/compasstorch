@@ -70,9 +70,10 @@ class _ControlPadState extends State<ControlPad>
 
   void _animateTo(Offset target) {
     _target = target;
-    _knob = Tween<Offset>(begin: _position, end: target).animate(
-      CurvedAnimation(parent: _settle, curve: Curves.easeOutCubic),
-    );
+    _knob = Tween<Offset>(
+      begin: _position,
+      end: target,
+    ).animate(CurvedAnimation(parent: _settle, curve: Curves.easeOutCubic));
     _settle.forward(from: 0);
   }
 
@@ -129,13 +130,13 @@ class _ControlPadState extends State<ControlPad>
     final beacon = velocity.dx < -_flingVelocity
         ? true
         : velocity.dx > _flingVelocity
-            ? false
-            : released.dx >= 0.5;
+        ? false
+        : released.dx >= 0.5;
     final torch = velocity.dy < -_flingVelocity
         ? true
         : velocity.dy > _flingVelocity
-            ? false
-            : released.dy >= 0.5;
+        ? false
+        : released.dy >= 0.5;
 
     _drag = null;
     _commit(beacon: beacon, torch: torch);
@@ -256,8 +257,8 @@ class _Knob extends StatelessWidget {
         torch >= 0.5
             ? Icons.flashlight_on_rounded
             : beacon >= 0.5
-                ? Icons.wb_sunny_rounded
-                : Icons.drag_indicator_rounded,
+            ? Icons.wb_sunny_rounded
+            : Icons.drag_indicator_rounded,
         size: radius * 0.9,
         color: active > 0.5 ? Colors.black87 : scheme.onSurface,
       ),
@@ -329,10 +330,18 @@ class _PadPainter extends CustomPainter {
     );
 
     // Flechas que indican hacia dónde arrastrar.
-    _arrow(canvas, Offset(home.dx, margin + knobRadius * 0.2), -math.pi / 2,
-        scheme.primary.withValues(alpha: 0.25 + 0.55 * position.dy));
-    _arrow(canvas, Offset(margin + knobRadius * 0.2, home.dy), math.pi,
-        scheme.secondary.withValues(alpha: 0.25 + 0.55 * position.dx));
+    _arrow(
+      canvas,
+      Offset(home.dx, margin + knobRadius * 0.2),
+      -math.pi / 2,
+      scheme.primary.withValues(alpha: 0.25 + 0.55 * position.dy),
+    );
+    _arrow(
+      canvas,
+      Offset(margin + knobRadius * 0.2, home.dy),
+      math.pi,
+      scheme.secondary.withValues(alpha: 0.25 + 0.55 * position.dx),
+    );
   }
 
   void _axisLabel(

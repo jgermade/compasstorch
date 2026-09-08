@@ -29,9 +29,8 @@ class _HarnessState extends State<_Harness> {
             child: ControlPad(
               torchOn: torch,
               beaconOn: beacon,
-              onTorchChanged: (value) => setState(
-                () => torch = widget.rejectTorch ? false : value,
-              ),
+              onTorchChanged: (value) =>
+                  setState(() => torch = widget.rejectTorch ? false : value),
               onBeaconChanged: (value) => setState(() => beacon = value),
             ),
           ),
@@ -44,9 +43,9 @@ class _HarnessState extends State<_Harness> {
 void main() {
   /// Rectángulo real del mando: un cuadrado centrado dentro de su hueco.
   Finder padFinder() => find.descendant(
-        of: find.byType(ControlPad),
-        matching: find.byType(GestureDetector),
-      );
+    of: find.byType(ControlPad),
+    matching: find.byType(GestureDetector),
+  );
   _HarnessState state(WidgetTester tester) =>
       tester.state<_HarnessState>(find.byType(_Harness));
 
@@ -68,8 +67,9 @@ void main() {
     expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('arrastrar hacia la izquierda activa el modo faro',
-      (tester) async {
+  testWidgets('arrastrar hacia la izquierda activa el modo faro', (
+    tester,
+  ) async {
     await tester.pumpWidget(const _Harness());
     final rect = tester.getRect(padFinder());
 
@@ -103,8 +103,9 @@ void main() {
     expect(state(tester).torch, isFalse);
   });
 
-  testWidgets('devolver el pulsador al reposo apaga la linterna',
-      (tester) async {
+  testWidgets('devolver el pulsador al reposo apaga la linterna', (
+    tester,
+  ) async {
     await tester.pumpWidget(const _Harness());
     final rect = tester.getRect(padFinder());
 
@@ -120,8 +121,9 @@ void main() {
     expect(state(tester).torch, isFalse);
   });
 
-  testWidgets('tocar una esquina lleva el pulsador a ese estado',
-      (tester) async {
+  testWidgets('tocar una esquina lleva el pulsador a ese estado', (
+    tester,
+  ) async {
     await tester.pumpWidget(const _Harness());
     final rect = tester.getRect(padFinder());
 
@@ -140,8 +142,9 @@ void main() {
     expect(state(tester).beacon, isFalse);
   });
 
-  testWidgets('si el padre rechaza la linterna, el pulsador vuelve al reposo',
-      (tester) async {
+  testWidgets('si el padre rechaza la linterna, el pulsador vuelve al reposo', (
+    tester,
+  ) async {
     await tester.pumpWidget(const _Harness(rejectTorch: true));
     final rect = tester.getRect(padFinder());
     final home = restingKnob(tester);

@@ -28,6 +28,11 @@ La pantalla se divide en dos mitades:
   También se puede tocar directamente la esquina a la que se quiere llevar el
   pulsador.
 
+  Cada encendido y cada apagado se confirma con una **vibración háptica**: un
+  golpe más marcado al activar y otro más suave al desactivar, para notar el
+  cambio sin mirar la pantalla. Si la linterna no llega a encenderse (no hay
+  flash, o lo tiene otra aplicación) no vibra nada.
+
 La aplicación usa **tema oscuro** siempre, salvo mientras el modo faro está
 activo, que es cuando pasa a blanco para que la pantalla dé el máximo de luz.
 
@@ -62,6 +67,56 @@ permiso `CAMERA`. `screen_brightness` cambia el brillo únicamente de esta
 aplicación, así que tampoco necesita `WRITE_SETTINGS`. En iOS los sensores de
 movimiento no piden permiso, pero se declara `NSMotionUsageDescription`.
 
+## Compilación y publicación
+
+Dos workflows en `.github/workflows`:
+
+### `build.yml` — comprobar y compilar
+
+Se dispara en cada push a `main` y en cada pull request, y además se puede
+reutilizar desde otro workflow (`workflow_call`) indicando qué referencia
+compilar. Tres trabajos:
+
+1. `test`: `dart format --set-exit-if-changed`, `flutter analyze` y
+   `flutter test`.
+2. `android`: `flutter build apk --release`, publicado como artefacto `apk`.
+3. `ios`: `flutter build ios --release --no-codesign` y empaquetado del
+   `Runner.app` como `.ipa`, publicado como artefacto `ipa`.
+
+Los dos trabajos de compilación esperan a que `test` pase. El de iOS corre en
+un runner de macOS, que consume minutos a un ritmo mucho mayor que el de Linux:
+si el gasto en pull requests molesta, lo suyo es limitarlo a `push` y
+`workflow_call`.
+
+### `release.yml` — versionar y publicar
+
+Se lanza a mano (`workflow_dispatch`) eligiendo si sube `patch`, `minor` o
+`major`. Hace, en este orden:
+
+1. `bump`: calcula la nueva versión a partir de la de `pubspec.yaml`, sube
+   también el código de compilación (`1.2.3+7` → `1.2.4+8`), escribe el
+   `pubspec.yaml`, hace commit, crea la etiqueta `vX.Y.Z` y la sube. Aborta si
+   la etiqueta ya existe.
+2. `build`: reutiliza `build.yml` **sobre el commit que acaba de crear**, no
+   sobre el que disparó el workflow.
+3. `publish`: descarga los artefactos, los renombra con la versión y crea la
+   release de GitHub con el APK y el IPA adjuntos. Las notas salen de los
+   commits desde la etiqueta anterior.
+
+Necesita que la rama admita el push del bot: con `main` protegida hay que
+darle permiso a `github-actions[bot]` o lanzar la release desde otra rama.
+
+### Firma
+
+Ninguno de los dos binarios está firmado para distribución:
+
+- El **APK** se firma con la clave de depuración, que es lo que trae la
+  plantilla de Flutter (`android/app/build.gradle.kts`). Se instala a mano,
+  pero no vale para Google Play. Para publicar hay que crear un keystore,
+  guardarlo en los secretos del repositorio y añadir su `signingConfig`.
+- El **IPA** sale sin firmar, porque en CI no hay certificado de Apple. Sirve
+  para inspeccionarlo o volver a firmarlo, no para instalarlo tal cual.
+
 ## Desarrollo
 
 ```bash
@@ -73,5 +128,6 @@ flutter run
 
 Los tests cubren el cálculo de la orientación con vectores conocidos (teléfono
 tumbado y levantado apuntando a cada rumbo, caída libre, campo alineado con la
-gravedad), los gestos del mando y la lógica de los dos controles con un doble de
-`DeviceServices`, sin tocar los canales de plataforma.
+gravedad), los gestos del mando y la lógica de los dos controles —vibración
+incluida— con un doble de `DeviceServices`, sin tocar los canales de
+plataforma.

@@ -59,10 +59,12 @@ class SensorOrientationService implements OrientationService {
   SensorOrientationService({
     Stream<AccelerometerEvent>? accelerometer,
     Stream<MagnetometerEvent>? magnetometer,
-  })  : _accelerometer = accelerometer ??
-            accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval),
-        _magnetometer = magnetometer ??
-            magnetometerEventStream(samplingPeriod: SensorInterval.uiInterval);
+  }) : _accelerometer =
+           accelerometer ??
+           accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval),
+       _magnetometer =
+           magnetometer ??
+           magnetometerEventStream(samplingPeriod: SensorInterval.uiInterval);
 
   /// Peso de cada nueva muestra en el filtro paso bajo. Valores pequeños dan
   /// una aguja más estable pero más lenta.
@@ -81,10 +83,11 @@ class SensorOrientationService implements OrientationService {
 
   @override
   Stream<OrientationReading> get readings {
-    final controller = _controller ??= StreamController<OrientationReading>.broadcast(
-      onListen: _start,
-      onCancel: _stop,
-    );
+    final controller = _controller ??=
+        StreamController<OrientationReading>.broadcast(
+          onListen: _start,
+          onCancel: _stop,
+        );
     return controller.stream;
   }
 
@@ -141,7 +144,10 @@ class SensorOrientationService implements OrientationService {
   /// Construye la lectura a partir de los vectores de gravedad y campo
   /// magnético. Devuelve `null` si los vectores no permiten orientar (caída
   /// libre, o teléfono apuntando justo a lo largo de las líneas de campo).
-  static OrientationReading? _computeReading(_Vector3? gravity, _Vector3? field) {
+  static OrientationReading? _computeReading(
+    _Vector3? gravity,
+    _Vector3? field,
+  ) {
     if (gravity == null || field == null) return null;
 
     final gravityNorm = gravity.length;
@@ -198,10 +204,10 @@ class _Vector3 {
       _Vector3(x / scalar, y / scalar, z / scalar);
 
   _Vector3 cross(_Vector3 other) => _Vector3(
-        y * other.z - z * other.y,
-        z * other.x - x * other.z,
-        x * other.y - y * other.x,
-      );
+    y * other.z - z * other.y,
+    z * other.x - x * other.z,
+    x * other.y - y * other.x,
+  );
 }
 
 /// Construye una lectura a partir de vectores brutos `[x, y, z]`. Devuelve

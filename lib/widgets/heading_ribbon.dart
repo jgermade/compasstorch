@@ -148,16 +148,16 @@ class _RibbonPainter extends CustomPainter {
       final height = isCardinal
           ? baseline * 0.62
           : isLabelled
-              ? baseline * 0.40
-              : baseline * 0.18;
+          ? baseline * 0.40
+          : baseline * 0.18;
       canvas.drawLine(
         Offset(x, baseline - height),
         Offset(x, baseline),
         isCardinal
             ? major
             : isLabelled
-                ? medium
-                : minor,
+            ? medium
+            : minor,
       );
 
       if (isCardinal) {
@@ -175,9 +175,7 @@ class _RibbonPainter extends CustomPainter {
           canvas,
           '$normalized',
           Offset(x, baseline + 9),
-          degreeStyle.copyWith(
-            color: scheme.onSurface.withValues(alpha: 0.55),
-          ),
+          degreeStyle.copyWith(color: scheme.onSurface.withValues(alpha: 0.55)),
         );
       }
     }
@@ -202,7 +200,12 @@ class _RibbonPainter extends CustomPainter {
     final fade = Paint()
       ..blendMode = BlendMode.dstOut
       ..shader = const LinearGradient(
-        colors: [Colors.black, Colors.transparent, Colors.transparent, Colors.black],
+        colors: [
+          Colors.black,
+          Colors.transparent,
+          Colors.transparent,
+          Colors.black,
+        ],
         stops: [0, 0.12, 0.88, 1],
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, fade);
@@ -250,7 +253,9 @@ class _ElevationBar extends StatelessWidget {
                   Container(
                     height: 4,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.15,
+                      ),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -263,10 +268,7 @@ class _ElevationBar extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    left: math.max(
-                      0,
-                      fraction * constraints.maxWidth - 6,
-                    ),
+                    left: math.max(0, fraction * constraints.maxWidth - 6),
                     child: Container(
                       width: 12,
                       height: 12,

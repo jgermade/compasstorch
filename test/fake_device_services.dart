@@ -9,6 +9,9 @@ class FakeDeviceServices implements DeviceServices {
   bool failOnTorch = false;
   bool failOnBrightness = false;
 
+  /// Pulsos hápticos emitidos: `true` al activar, `false` al desactivar.
+  final List<bool> haptics = [];
+
   bool torchOn = false;
   bool maxBrightness = false;
   bool keepScreenOn = false;
@@ -38,5 +41,11 @@ class FakeDeviceServices implements DeviceServices {
   Future<void> setKeepScreenOn({required bool enabled}) async {
     calls.add('setKeepScreenOn($enabled)');
     keepScreenOn = enabled;
+  }
+
+  @override
+  Future<void> hapticPulse({required bool activating}) async {
+    calls.add('hapticPulse($activating)');
+    haptics.add(activating);
   }
 }

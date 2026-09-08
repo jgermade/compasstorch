@@ -1,5 +1,14 @@
 /// Abreviaturas de los ocho rumbos principales, en castellano.
-const List<String> kCardinalNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const List<String> kCardinalNames = [
+  'N',
+  'NE',
+  'E',
+  'SE',
+  'S',
+  'SO',
+  'O',
+  'NO',
+];
 
 /// Nombre del rumbo más cercano a [degrees].
 String cardinalFor(double degrees) {

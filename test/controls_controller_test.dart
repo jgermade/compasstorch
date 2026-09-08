@@ -22,7 +22,11 @@ void main() {
 
     expect(controller.torchOn, isTrue);
     expect(services.torchOn, isTrue);
-    expect(services.calls, ['isTorchAvailable', 'setTorch(true)']);
+    expect(services.calls, [
+      'isTorchAvailable',
+      'setTorch(true)',
+      'hapticPulse(true)',
+    ]);
   });
 
   test('sin flash disponible el estado vuelve atrás y avisa', () async {
@@ -46,13 +50,16 @@ void main() {
     expect(controller.takeError(), isNotNull);
   });
 
-  test('el modo faro sube el brillo y bloquea el apagado de pantalla', () async {
-    await controller.setBeacon(enabled: true);
+  test(
+    'el modo faro sube el brillo y bloquea el apagado de pantalla',
+    () async {
+      await controller.setBeacon(enabled: true);
 
-    expect(controller.beaconOn, isTrue);
-    expect(services.maxBrightness, isTrue);
-    expect(services.keepScreenOn, isTrue);
-  });
+      expect(controller.beaconOn, isTrue);
+      expect(services.maxBrightness, isTrue);
+      expect(services.keepScreenOn, isTrue);
+    },
+  );
 
   test('apagar el modo faro devuelve el brillo y libera la pantalla', () async {
     await controller.setBeacon(enabled: true);
@@ -85,10 +92,54 @@ void main() {
     expect(services.maxBrightness, isTrue);
   });
 
-  test('sin modo faro no se toca el brillo al volver del segundo plano', () async {
-    await controller.reapplyScreenSettings();
+  test(
+    'sin modo faro no se toca el brillo al volver del segundo plano',
+    () async {
+      await controller.reapplyScreenSettings();
 
-    expect(services.calls, isEmpty);
+      expect(services.calls, isEmpty);
+    },
+  );
+
+  group('vibración háptica', () {
+    test('la linterna vibra al encender y al apagar', () async {
+      await controller.setTorch(enabled: true);
+      expect(services.haptics, [true]);
+
+      await controller.setTorch(enabled: false);
+      expect(services.haptics, [true, false]);
+    });
+
+    test('el modo faro vibra al activar y al desactivar', () async {
+      await controller.setBeacon(enabled: true);
+      await controller.setBeacon(enabled: false);
+
+      expect(services.haptics, [true, false]);
+    });
+
+    test('sin flash no vibra: no ha llegado a encenderse', () async {
+      services.torchAvailable = false;
+
+      await controller.setTorch(enabled: true);
+
+      expect(services.haptics, isEmpty);
+    });
+
+    test('repetir el mismo estado no vibra otra vez', () async {
+      await controller.setTorch(enabled: true);
+      await controller.setTorch(enabled: true);
+
+      expect(services.haptics, [true]);
+    });
+
+    test('el modo faro vibra aunque el brillo no se deje ajustar', () async {
+      services.failOnBrightness = true;
+
+      await controller.setBeacon(enabled: true);
+
+      expect(controller.beaconOn, isTrue);
+      expect(services.haptics, [true]);
+    });
   });
 
   test('al salir se apaga el flash y se restauran los ajustes', () async {

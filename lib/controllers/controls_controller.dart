@@ -43,21 +43,29 @@ class ControlsController extends ChangeNotifier {
       _torchOn = !enabled;
       _errorMessage = enabled
           ? 'No se ha podido encender la linterna: este dispositivo no tiene '
-              'flash disponible o lo está usando otra aplicación.'
+                'flash disponible o lo está usando otra aplicación.'
           : 'No se ha podido apagar la linterna.';
       _notify();
+      return;
     }
+    // La vibración solo confirma lo que de verdad ha ocurrido: si el flash
+    // falla, no se nota nada.
+    await _pulse(activating: enabled);
   }
 
   Future<void> setBeacon({required bool enabled}) async {
     if (_beaconOn == enabled) return;
     _beaconOn = enabled;
     _notify();
+    // El modo faro cambia el tema pase lo que pase con el brillo, así que el
+    // golpe háptico va siempre.
+    await _pulse(activating: enabled);
     try {
       await _services.setMaxBrightness(enabled: enabled);
       await _services.setKeepScreenOn(enabled: enabled);
     } catch (error) {
-      _errorMessage = 'El modo faro se ha activado solo en parte: el sistema no '
+      _errorMessage =
+          'El modo faro se ha activado solo en parte: el sistema no '
           'ha permitido ajustar el brillo o mantener la pantalla encendida.';
       _notify();
     }
@@ -88,6 +96,16 @@ class ControlsController extends ChangeNotifier {
     }
     _torchOn = false;
     _beaconOn = false;
+  }
+
+  /// Vibración de confirmación. Un dispositivo sin motor háptico no es motivo
+  /// para dar por fallado el cambio.
+  Future<void> _pulse({required bool activating}) async {
+    try {
+      await _services.hapticPulse(activating: activating);
+    } catch (error) {
+      // Sin háptica: el control ya ha cambiado igualmente.
+    }
   }
 
   void _notify() {

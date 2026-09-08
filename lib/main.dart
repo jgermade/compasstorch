@@ -39,8 +39,9 @@ class CompassTorchApp extends StatefulWidget {
 }
 
 class _CompassTorchAppState extends State<CompassTorchApp> {
-  late final ControlsController _controller =
-      ControlsController(widget.services);
+  late final ControlsController _controller = ControlsController(
+    widget.services,
+  );
   late final AppLifecycleListener _lifecycle;
 
   @override

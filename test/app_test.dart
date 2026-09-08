@@ -33,11 +33,11 @@ class FakeOrientationService implements OrientationService {
 
 /// Rectángulo real del mando: es un cuadrado centrado dentro de su hueco.
 Rect padRect(WidgetTester tester) => tester.getRect(
-      find.descendant(
-        of: find.byType(ControlPad),
-        matching: find.byType(GestureDetector),
-      ),
-    );
+  find.descendant(
+    of: find.byType(ControlPad),
+    matching: find.byType(GestureDetector),
+  ),
+);
 
 void main() {
   group('elección de vista según la inclinación', () {
@@ -80,8 +80,9 @@ void main() {
       expect(materialApp.theme!.brightness, Brightness.dark);
     });
 
-    testWidgets('tumbado se ve la brújula; levantado, la regla de rumbos',
-        (tester) async {
+    testWidgets('tumbado se ve la brújula; levantado, la regla de rumbos', (
+      tester,
+    ) async {
       await pumpApp(tester);
 
       orientation.emit(tilt: 5, heading: 42);
@@ -95,8 +96,9 @@ void main() {
       expect(find.byType(CompassDial), findsNothing);
     });
 
-    testWidgets('el modo faro pasa a tema claro y sube el brillo',
-        (tester) async {
+    testWidgets('el modo faro pasa a tema claro y sube el brillo', (
+      tester,
+    ) async {
       await pumpApp(tester);
       orientation.emit(tilt: 5);
       await tester.pumpAndSettle();
