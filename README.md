@@ -18,21 +18,24 @@ La pantalla se divide en dos mitades:
   banda muerta entre 35° y 55° para que la vista no oscile en el límite.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
-  superficie de plástico rugoso con un círculo grabado que hace de marca. Dos
-  líneas blancas cruzan el control, fijas al marco, y delimitan un cuadro de
-  reposo en la esquina inferior derecha donde la marca descansa.
+  superficie de plástico rugoso con un círculo translúcido que hace de marca.
+  Dos líneas blancas cruzan el control de lado a lado, fijas al marco, y
+  delimitan un cuadro de reposo en la esquina inferior derecha donde la marca
+  descansa. Un icono en cada cuadrante recuerda qué hace cada eje: la linterna
+  arriba a la derecha y el modo faro abajo a la izquierda.
 
   - Pasar la marca **por encima de la línea horizontal** enciende la linterna
     **al 100 %**. Si el dispositivo permite graduarla, seguir subiendo la
-    atenúa, hasta el mínimo en la banda del borde superior.
+    atenúa, hasta el mínimo pegada al borde superior.
   - Pasarla **a la izquierda de la vertical** activa el **modo faro** (tema
     claro y pantalla que no se apaga) con el brillo al mínimo. Seguir hacia la
-    izquierda lo sube, hasta el 100 % en la banda translúcida del borde.
+    izquierda lo sube, hasta el 100 % pegada al borde izquierdo.
   - Los dos ejes son independientes: en diagonal quedan las dos cosas activas.
 
-  Al soltar, la marca se queda donde esté, salvo en tres sitios: dentro del
-  cuadro de reposo vuelve al centro, y dentro de una banda de iluminación se
-  centra en ella. También se puede tocar directamente el punto de destino.
+  Al soltar, la marca sale desde donde esté el dedo y se queda ahí, salvo en
+  tres sitios: dentro del cuadro de reposo vuelve al centro, y dentro de una
+  banda de iluminación se centra en ella. También se puede tocar directamente
+  el punto de destino.
 
   El sentido de la gradación está invertido entre los dos a propósito: de una
   linterna se quiere todo el brillo nada más encenderla, mientras que del faro

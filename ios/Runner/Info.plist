@@ -13,9 +13,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Brújula y Linterna</string>
+	<string>CompassTorch</string>
 	<key>CFBundleName</key>
-	<string>compasstorch</string>
+	<string>CompassTorch</string>
 	<!-- Se leen el acelerómetro y el magnetómetro para calcular el rumbo. -->
 	<key>NSMotionUsageDescription</key>
 	<string>Se usan los sensores de movimiento y el magnetómetro para calcular el rumbo de la brújula.</string>
