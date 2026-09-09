@@ -79,6 +79,7 @@ class ControlsController extends ChangeNotifier {
   bool _beaconOn = false;
   double _torchIntensity = 1;
   double _beaconLevel = 1;
+  bool _keepAwake = true;
   ControlsError? _error;
   bool _disposed = false;
 
@@ -87,6 +88,14 @@ class ControlsController extends ChangeNotifier {
 
   bool get torchOn => _torchOn;
   bool get beaconOn => _beaconOn;
+
+  /// La aplicación impide que la pantalla se apague sola. Viene activado: se
+  /// usa a oscuras, con las manos ocupadas y sin tocar la pantalla en un rato.
+  bool get keepAwake => _keepAwake;
+
+  /// Si la pantalla debe quedarse encendida ahora mismo. El modo faro la
+  /// necesita encendida aunque la inhibición general esté desactivada.
+  bool get _screenStaysOn => _keepAwake || _beaconOn;
 
   /// Intensidad de la linterna pedida, de 0 a 1.
   double get torchIntensity => _torchIntensity;
@@ -199,11 +208,49 @@ class ControlsController extends ChangeNotifier {
         enabled: enabled,
         level: _screenFor(_beaconLevel),
       );
-      await _services.setKeepScreenOn(enabled: enabled);
+      // Apagar el faro no destapa la pantalla si la inhibición general sigue
+      // puesta, que es lo normal.
+      await _services.setKeepScreenOn(enabled: _screenStaysOn);
     } catch (error) {
       _error = ControlsError.beaconPartial;
       _notify();
     }
+  }
+
+  /// Enciende o apaga la linterna desde la barra de estado. Al encenderla
+  /// recupera el último nivel usado, y el mando se coloca solo donde toca.
+  Future<void> toggleTorch() {
+    if (_torchOn) return setTorch(enabled: false);
+    return setTorch(
+      enabled: true,
+      intensity: _torchIntensity > 0 ? _torchIntensity : 1,
+    );
+  }
+
+  /// Activa o desactiva el modo faro desde la barra de estado.
+  Future<void> toggleBeacon() {
+    if (_beaconOn) return setBeacon(enabled: false);
+    return setBeacon(enabled: true, level: _beaconLevel > 0 ? _beaconLevel : 1);
+  }
+
+  /// Aplica la inhibición del apagado de pantalla. Es idempotente: se llama al
+  /// arrancar y al volver del segundo plano, donde el sistema la ha soltado.
+  Future<void> applyKeepAwake() async {
+    try {
+      await _services.setKeepScreenOn(enabled: _screenStaysOn);
+    } catch (error) {
+      // Sin bloqueo de pantalla la aplicación sigue funcionando igual.
+    }
+  }
+
+  /// Cambia si la pantalla puede apagarse sola. Se maneja manteniendo pulsado
+  /// el cuadro de reposo del mando, así que el golpe háptico es la única
+  /// confirmación que se nota sin mirar.
+  Future<void> toggleKeepAwake() async {
+    _keepAwake = !_keepAwake;
+    _notify();
+    await _pulse(_keepAwake ? HapticCue.turnedOn : HapticCue.turnedOff);
+    await applyKeepAwake();
   }
 
   /// Cambia el brillo con el modo faro ya activo.
@@ -220,13 +267,13 @@ class ControlsController extends ChangeNotifier {
   /// Vuelve a aplicar los ajustes de pantalla al regresar del segundo plano:
   /// el sistema restaura el brillo de la aplicación cuando esta se oculta.
   Future<void> reapplyScreenSettings() async {
+    await applyKeepAwake();
     if (!_beaconOn) return;
     try {
       await _services.setBrightness(
         enabled: true,
         level: _screenFor(_beaconLevel),
       );
-      await _services.setKeepScreenOn(enabled: true);
     } catch (error) {
       // Un fallo al restaurar no debe interrumpir la vuelta a la aplicación.
     }
@@ -240,8 +287,8 @@ class ControlsController extends ChangeNotifier {
       }
       if (_beaconOn) {
         await _services.setBrightness(enabled: false, level: 1);
-        await _services.setKeepScreenOn(enabled: false);
       }
+      await _services.setKeepScreenOn(enabled: false);
     } catch (error) {
       // Se está cerrando: no hay nada que informar.
     }

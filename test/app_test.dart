@@ -112,9 +112,9 @@ void main() {
       orientation.emit(tilt: 5);
       await tester.pumpAndSettle();
 
-      final beacon = tester.getCenter(find.byIcon(Icons.wb_sunny_rounded));
+      final beacon = tester.getCenter(find.byKey(const ValueKey('beaconChip')));
       final view = tester.getCenter(find.byIcon(Icons.explore_rounded));
-      final torch = tester.getCenter(find.byIcon(Icons.flashlight_on_rounded));
+      final torch = tester.getCenter(find.byKey(const ValueKey('torchChip')));
       final width = tester.getSize(find.byType(MaterialApp)).width;
 
       // Faro a la izquierda, linterna a la derecha y la vista en medio.
@@ -202,6 +202,48 @@ void main() {
 
       final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(materialApp.theme!.brightness, Brightness.light);
+    });
+
+    testWidgets('la pantalla no se apaga sola desde el arranque', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+
+      expect(services.keepScreenOn, isTrue);
+    });
+
+    testWidgets('los chips de la barra encienden y apagan sus controles', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      orientation.emit(tilt: 5);
+      await tester.pumpAndSettle();
+
+      final rest = padRect(tester);
+
+      await tester.tap(find.byKey(const ValueKey('torchChip')));
+      await tester.pumpAndSettle();
+      expect(services.torchOn, isTrue);
+      // El mando se coloca solo: la marca sube al tope de la linterna.
+      expect(
+        tester.widget<ControlPad>(find.byType(ControlPad)).torchIntensity,
+        closeTo(1, 0.001),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('beaconChip')));
+      await tester.pumpAndSettle();
+      expect(services.screenBrightness, isNotNull);
+
+      // El mando sigue en su sitio: los chips no lo mueven de la pantalla.
+      expect(padRect(tester), rest);
+
+      await tester.tap(find.byKey(const ValueKey('torchChip')));
+      await tester.tap(find.byKey(const ValueKey('beaconChip')));
+      await tester.pumpAndSettle();
+
+      expect(services.torchOn, isFalse);
+      expect(services.screenBrightness, isNull);
     });
 
     testWidgets('la linterna no cambia el tema', (tester) async {

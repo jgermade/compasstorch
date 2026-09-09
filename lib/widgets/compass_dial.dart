@@ -293,7 +293,7 @@ class _DialPainter extends CustomPainter {
 /// Lo que no gira con la carta: la marca fija de la parte alta, la tapa
 /// central y, dentro de ella, la burbuja de nivel.
 ///
-/// La burbuja es una mancha difuminada que se pinta **debajo** de la lectura y
+/// La burbuja es un disco translúcido que se pinta **debajo** de la lectura y
 /// no llega a tocarla: así indica el nivel sin partir los grados ni el rumbo.
 class _HubPainter extends CustomPainter {
   _HubPainter({
@@ -329,31 +329,23 @@ class _HubPainter extends CustomPainter {
     final bubbleRadius = hubRadius * 0.66;
     final travel = hubRadius - bubbleRadius;
     final bubble = center + Offset(level.dx * travel, level.dy * travel);
-    final area = Rect.fromCircle(center: bubble, radius: bubbleRadius);
+    // Disco de un solo tono, sin degradado en el borde: la gota se recorta
+    // limpia sobre la tapa y se sigue leyendo debajo de los grados.
     canvas.drawCircle(
       bubble,
       bubbleRadius,
-      Paint()
-        ..shader = RadialGradient(
-          // El borde se apaga poco a poco: así la mancha se ve entera y no
-          // parte los grados ni el rumbo, que van encima.
-          colors: [
-            color.withValues(alpha: levelled ? 0.40 : 0.32),
-            color.withValues(alpha: levelled ? 0.30 : 0.24),
-            color.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.55, 1],
-        ).createShader(area),
+      Paint()..color = color.withValues(alpha: levelled ? 0.46 : 0.38),
     );
 
-    // El borde de la tapa se enciende cuando la burbuja está centrada.
+    // El borde de la tapa solo cambia de color al centrarse la burbuja: si
+    // además engordara, el círculo daría un salto al nivelarse.
     canvas.drawCircle(
       center,
       hubRadius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = levelled ? 2.5 : 1.5
-        ..color = levelled ? color : hubBorder.withValues(alpha: 0.55),
+        ..strokeWidth = 1.5
+        ..color = levelled ? color : hubBorder.withValues(alpha: 0.75),
     );
 
     final tip = Offset(center.dx, center.dy - radius + 2);

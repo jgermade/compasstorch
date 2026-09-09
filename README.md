@@ -24,7 +24,10 @@ La pantalla se divide en dos mitades:
 
   Encima de la brújula, en las esquinas, el estado de los dos controles: el
   modo faro arriba a la izquierda y la linterna arriba a la derecha, cada uno
-  con su porcentaje hacia el centro. En medio, el icono de la vista activa.
+  con su porcentaje hacia el centro y con el mismo icono que lleva su eje en el
+  mando. En medio, el icono de la vista activa. Los dos son pulsables: tocarlos
+  enciende o apaga su control —recuperando el último nivel que tuviera— y el
+  mando de abajo se coloca solo donde corresponda.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
   superficie de plástico rugoso con un círculo translúcido que hace de marca.
@@ -55,8 +58,19 @@ La pantalla se divide en dos mitades:
   cambio sin mirar la pantalla. Si la linterna no llega a encenderse (no hay
   flash, o lo tiene otra aplicación) no vibra nada.
 
+  Mantener el dedo **cinco segundos en el cuadro de reposo** activa o desactiva
+  que la pantalla se quede encendida (ver más abajo). Se hace ahí porque es el
+  único sitio del mando donde el dedo quieto no cambia ninguna luz, y la
+  vibración confirma el cambio.
+
 La aplicación usa **tema oscuro** siempre, salvo mientras el modo faro está
 activo, que es cuando pasa a blanco para que la pantalla dé el máximo de luz.
+
+**La pantalla no se apaga sola** mientras la aplicación está abierta: se usa a
+oscuras, apuntando a otro sitio y sin tocarla en un rato. La inhibición se
+puede quitar manteniendo pulsado el cuadro de reposo del mando; mientras esté
+quitada, los dos iconos del mando se pintan **en escala de grises**. El modo
+faro mantiene la pantalla encendida de todas formas, la haya quitado o no.
 
 ## Idiomas
 
@@ -102,7 +116,9 @@ Los dos ejes son analógicos, pero por razones distintas:
 ventana, así que se ajusta con cualquier valor en todas las versiones de Android
 e iOS. El nivel del mando se traduce a brillo con un **suelo del 30 %**, a
 propósito: con la pantalla apagada del todo no se vería el mando para volver a
-subirla. El modo claro y la inhibición del apagado van siempre juntos.
+subirla. El modo claro va siempre con el faro; la inhibición del apagado ya
+viene puesta desde el arranque, así que el faro solo se asegura de que siga
+puesta mientras dure.
 
 **La intensidad del flash** depende del dispositivo:
 

@@ -10,6 +10,10 @@ class AppColors {
   /// Acento del modo faro (eje horizontal del mando).
   static const Color beacon = Color(0xFF00B8D4);
 
+  /// Azul del faro en la barra de estado: más claro que el acento, para que el
+  /// icono se distinga del de la linterna de un vistazo.
+  static const Color beaconLight = Color(0xFF4DD0E1);
+
   /// Superficie del mando: un plástico neutro, sin el tinte del color de
   /// acento que arrastra `surfaceContainerHighest`.
   static const Color darkPlastic = Color(0xFF171C22);

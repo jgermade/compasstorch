@@ -36,6 +36,16 @@ class AppStringsEn extends AppStrings {
   }
 
   @override
+  String padLabel({required bool keepAwake}) {
+    const pad = 'Torch and beacon pad.';
+    return keepAwake
+        ? '$pad The screen is kept awake; press and hold the rest square to '
+              'let it switch off.'
+        : '$pad The screen may switch off; press and hold the rest square to '
+              'keep it awake.';
+  }
+
+  @override
   String get levelCentered => 'Phone level';
 
   @override

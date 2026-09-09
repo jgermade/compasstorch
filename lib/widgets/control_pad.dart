@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme.dart';
 import 'pad_geometry.dart';
 
@@ -18,6 +20,10 @@ import 'pad_geometry.dart';
 /// La posición dentro de cada eje gradúa la luz: los dos empiezan al mínimo al
 /// cruzar su línea y suben al alejarse de ella. Ver [PadGeometry] para el
 /// reparto de bandas.
+///
+/// Mantener el dedo en el cuadro de reposo activa o desactiva que la pantalla
+/// se quede encendida; los iconos del mando se apagan a gris cuando deja de
+/// estarlo.
 class ControlPad extends StatefulWidget {
   const ControlPad({
     super.key,
@@ -26,9 +32,11 @@ class ControlPad extends StatefulWidget {
     required this.torchIntensity,
     required this.beaconLevel,
     required this.torchIsGradual,
+    required this.keepAwake,
     required this.onTorchChanged,
     required this.onBeaconChanged,
     required this.onZoneChanged,
+    required this.onToggleKeepAwake,
   });
 
   final bool torchOn;
@@ -41,6 +49,10 @@ class ControlPad extends StatefulWidget {
   /// El dispositivo puede regular la intensidad del flash.
   final bool torchIsGradual;
 
+  /// La aplicación está impidiendo que la pantalla se apague sola. Es lo que
+  /// dicen los iconos del mando: a color cuando lo impide y en gris cuando no.
+  final bool keepAwake;
+
   /// Estado y nivel de cada control, también durante el arrastre.
   final void Function(bool enabled, double level) onTorchChanged;
   final void Function(bool enabled, double level) onBeaconChanged;
@@ -48,6 +60,14 @@ class ControlPad extends StatefulWidget {
   /// La marca ha entrado o salido de una banda de iluminación. No se llama al
   /// cruzar las líneas: eso ya lo señala el aviso de encendido, más fuerte.
   final VoidCallback onZoneChanged;
+
+  /// Se ha mantenido pulsado el cuadro de reposo el tiempo suficiente.
+  final VoidCallback onToggleKeepAwake;
+
+  /// Cuánto hay que mantener el dedo en el cuadro de reposo para cambiar la
+  /// inhibición del apagado de pantalla. Es largo a propósito: es un ajuste,
+  /// no un control del día a día, y no debe dispararse sin querer.
+  static const Duration holdToKeepAwake = Duration(seconds: 5);
 
   @override
   State<ControlPad> createState() => _ControlPadState();
@@ -72,6 +92,13 @@ class _ControlPadState extends State<ControlPad>
   PadZone _beaconZone = PadZone.rest;
 
   double _side = 0;
+
+  /// Cuenta atrás de la pulsación larga sobre el cuadro de reposo.
+  Timer? _hold;
+
+  /// La pulsación larga ya ha cambiado el ajuste: al levantar el dedo la marca
+  /// no debe moverse como en un toque normal.
+  bool _holdFired = false;
 
   /// Textura del fondo, generada una vez por tamaño: dibujar miles de motas en
   /// cada fotograma del arrastre saldría carísimo.
@@ -107,6 +134,7 @@ class _ControlPadState extends State<ControlPad>
 
   @override
   void dispose() {
+    _hold?.cancel();
     _settle.dispose();
     _texture?.dispose();
     super.dispose();
@@ -122,6 +150,7 @@ class _ControlPadState extends State<ControlPad>
   }
 
   void _onPanStart(DragStartDetails details) {
+    _cancelHold();
     _settle.stop();
     _torchZone = PadGeometry.torchZone(_position.dy);
     _beaconZone = PadGeometry.beaconZone(_position.dx);
@@ -144,7 +173,39 @@ class _ControlPadState extends State<ControlPad>
     _commit(_drag ?? _position);
   }
 
+  /// Empieza a contar la pulsación larga, solo dentro del cuadro de reposo:
+  /// ahí dejar el dedo quieto no cambia ninguna luz.
+  void _onTapDown(TapDownDetails details) {
+    _cancelHold();
+    _holdFired = false;
+    if (_side <= 0) return;
+    final point = details.localPosition / _side;
+    if (PadGeometry.torchOn(point.dy) || PadGeometry.beaconOn(point.dx)) return;
+    _hold = Timer(ControlPad.holdToKeepAwake, () {
+      _hold = null;
+      _holdFired = true;
+      widget.onToggleKeepAwake();
+    });
+  }
+
+  void _onTapCancel() {
+    _cancelHold();
+    _holdFired = false;
+  }
+
+  void _cancelHold() {
+    _hold?.cancel();
+    _hold = null;
+  }
+
   void _onTapUp(TapUpDetails details) {
+    _cancelHold();
+    // Levantar el dedo después de la pulsación larga solo cierra el gesto: el
+    // toque ya se ha gastado en cambiar el ajuste.
+    if (_holdFired) {
+      _holdFired = false;
+      return;
+    }
     if (_side <= 0) return;
     _commit(
       Offset(
@@ -237,6 +298,12 @@ class _ControlPadState extends State<ControlPad>
     return recorder.endRecording();
   }
 
+  /// Tinta de un icono del mando. Sin la inhibición del apagado de pantalla se
+  /// pintan en gris: es la señal de que ese ajuste está desactivado.
+  Color _iconTint(Color accent) => widget.keepAwake
+      ? accent
+      : HSLColor.fromColor(accent).withSaturation(0).toColor();
+
   /// Icono fijo del marco, centrado en [center]. Se enciende cuando su
   /// control está activo.
   Widget _icon(
@@ -263,6 +330,7 @@ class _ControlPadState extends State<ControlPad>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = AppStrings.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -283,13 +351,17 @@ class _ControlPadState extends State<ControlPad>
             width: side,
             height: side,
             child: Semantics(
-              label: 'Mando de linterna y modo faro',
+              // El gris de los iconos no lo lee nadie: el estado de la
+              // pantalla va en el nombre del mando.
+              label: strings.padLabel(keepAwake: widget.keepAwake),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onPanStart: _onPanStart,
                 onPanUpdate: _onPanUpdate,
                 onPanEnd: _onPanEnd,
+                onTapDown: _onTapDown,
                 onTapUp: _onTapUp,
+                onTapCancel: _onTapCancel,
                 child: Stack(
                   children: [
                     Positioned.fill(
@@ -308,14 +380,14 @@ class _ControlPadState extends State<ControlPad>
                     _icon(
                       Icons.flashlight_on,
                       Offset(PadGeometry.rest.dx * side, side * 0.1),
-                      theme.colorScheme.primary,
+                      _iconTint(theme.colorScheme.primary),
                       side,
                       active: widget.torchOn,
                     ),
                     _icon(
                       Icons.brightness_high,
                       Offset(side * 0.1, PadGeometry.rest.dy * side),
-                      theme.colorScheme.secondary,
+                      _iconTint(theme.colorScheme.secondary),
                       side,
                       active: widget.beaconOn,
                     ),

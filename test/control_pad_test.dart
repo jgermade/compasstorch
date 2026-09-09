@@ -25,6 +25,17 @@ class _HarnessState extends State<_Harness> {
   double torchLevel = 0;
   double beaconLevel = 0;
   int zoneChanges = 0;
+  bool keepAwake = true;
+  int keepAwakeToggles = 0;
+
+  /// Enciende la linterna desde fuera del mando, como hace el chip de la barra
+  /// de estado.
+  void switchTorchOn(double level) {
+    setState(() {
+      torch = true;
+      torchLevel = level;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +51,7 @@ class _HarnessState extends State<_Harness> {
               torchIntensity: torchLevel,
               beaconLevel: beaconLevel,
               torchIsGradual: widget.torchIsGradual,
+              keepAwake: keepAwake,
               onTorchChanged: (enabled, level) => setState(() {
                 torch = widget.rejectTorch ? false : enabled;
                 torchLevel = level;
@@ -49,6 +61,10 @@ class _HarnessState extends State<_Harness> {
                 beaconLevel = level;
               }),
               onZoneChanged: () => zoneChanges++,
+              onToggleKeepAwake: () => setState(() {
+                keepAwake = !keepAwake;
+                keepAwakeToggles++;
+              }),
             ),
           ),
         ),
@@ -66,6 +82,18 @@ void main() {
 
   _HarnessState state(WidgetTester tester) =>
       tester.state<_HarnessState>(find.byType(_Harness));
+
+  /// Posición normalizada de la marca, tal y como la está pintando el mando.
+  /// El pintor es privado, así que se le pregunta sin tipo.
+  Offset markOf(WidgetTester tester) {
+    final paint = tester.widget<CustomPaint>(
+      find.descendant(
+        of: find.byType(ControlPad),
+        matching: find.byType(CustomPaint),
+      ),
+    );
+    return ((paint.painter as dynamic).mark as Offset);
+  }
 
   /// Punto del mando en coordenadas normalizadas.
   Offset at(WidgetTester tester, double x, double y) {
@@ -260,5 +288,121 @@ void main() {
 
     expect(state(tester).torch, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('encender desde fuera del mando desplaza la marca', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _Harness());
+    await tester.pumpAndSettle();
+    expect(markOf(tester).dy, closeTo(PadGeometry.rest.dy, 0.001));
+
+    // Como al tocar el chip de la linterna en la barra de estado.
+    state(tester).switchTorchOn(1);
+    await tester.pumpAndSettle();
+
+    expect(markOf(tester).dy, closeTo(PadGeometry.torchFullAxis, 0.001));
+    expect(markOf(tester).dx, closeTo(PadGeometry.rest.dx, 0.001));
+  });
+
+  group('bloqueo del apagado de pantalla', () {
+    testWidgets('mantener pulsado el cuadro de reposo lo cambia', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const _Harness());
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.startGesture(
+        at(tester, PadGeometry.rest.dx, PadGeometry.rest.dy),
+      );
+      // Un poco más de la cuenta: el reconocedor de toques no informa de que
+      // el dedo ha bajado hasta que el arrastre pierde el turno.
+      await tester.pump(
+        ControlPad.holdToKeepAwake + const Duration(seconds: 1),
+      );
+      expect(state(tester).keepAwakeToggles, 1);
+      expect(state(tester).keepAwake, isFalse);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // El dedo se ha gastado en el ajuste: no ha encendido ninguna luz.
+      expect(state(tester).torch, isFalse);
+      expect(state(tester).beacon, isFalse);
+    });
+
+    testWidgets('soltar antes de tiempo no cambia nada', (tester) async {
+      await tester.pumpWidget(const _Harness());
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.startGesture(
+        at(tester, PadGeometry.rest.dx, PadGeometry.rest.dy),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(state(tester).keepAwakeToggles, 0);
+    });
+
+    testWidgets('mantener pulsado fuera del reposo no lo cambia', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const _Harness());
+      await tester.pumpAndSettle();
+
+      // Arriba a la izquierda: ahí el dedo sí manda sobre las luces.
+      final gesture = await tester.startGesture(at(tester, 0.1, 0.1));
+      // Un poco más de la cuenta: el reconocedor de toques no informa de que
+      // el dedo ha bajado hasta que el arrastre pierde el turno.
+      await tester.pump(
+        ControlPad.holdToKeepAwake + const Duration(seconds: 1),
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(state(tester).keepAwakeToggles, 0);
+    });
+
+    testWidgets('arrastrar no dispara la pulsación larga', (tester) async {
+      await tester.pumpWidget(const _Harness());
+
+      await dragMarkTo(tester, PadGeometry.rest.dx, 0.05);
+      await tester.pump(ControlPad.holdToKeepAwake);
+
+      expect(state(tester).keepAwakeToggles, 0);
+    });
+
+    testWidgets('sin bloqueo los iconos del mando se ven en gris', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const _Harness());
+      await tester.pumpAndSettle();
+
+      Color iconColor(IconData icon) =>
+          tester.widget<Icon>(find.byIcon(icon)).color!;
+
+      expect(
+        HSLColor.fromColor(iconColor(Icons.flashlight_on)).saturation,
+        greaterThan(0),
+      );
+
+      final gesture = await tester.startGesture(
+        at(tester, PadGeometry.rest.dx, PadGeometry.rest.dy),
+      );
+      // Un poco más de la cuenta: el reconocedor de toques no informa de que
+      // el dedo ha bajado hasta que el arrastre pierde el turno.
+      await tester.pump(
+        ControlPad.holdToKeepAwake + const Duration(seconds: 1),
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(HSLColor.fromColor(iconColor(Icons.flashlight_on)).saturation, 0);
+      expect(
+        HSLColor.fromColor(iconColor(Icons.brightness_high)).saturation,
+        0,
+      );
+    });
   });
 }
