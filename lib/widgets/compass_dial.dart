@@ -327,9 +327,15 @@ class _HubPainter extends CustomPainter {
     // Tapa central: la lectura numérica va encima de la aguja.
     canvas.drawCircle(center, hubRadius, Paint()..color = hubColor);
 
-    final bubbleRadius = hubRadius * 0.58;
+    final bubbleRadius = hubRadius * 0.70;
     final travel = hubRadius - bubbleRadius;
-    final bubble = center + Offset(level.dx * travel, level.dy * travel);
+    // El desplazamiento viene acotado eje a eje, así que en diagonal la suma
+    // de los dos se saldría de la tapa: se recorta también en distancia para
+    // que la gota ruede por dentro del borde, como en un nivel de burbuja de
+    // verdad, y no asome nunca por fuera.
+    var shift = Offset(level.dx * travel, level.dy * travel);
+    if (shift.distance > travel) shift = shift / shift.distance * travel;
+    final bubble = center + shift;
     // Disco de un solo tono, sin degradado en el borde: la gota se recorta
     // limpia sobre la tapa. Gris y muy translúcido: el nivel es un dato de
     // apoyo, así que se insinúa por el rabillo del ojo y deja los grados y el
