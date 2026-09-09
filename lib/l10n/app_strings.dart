@@ -44,6 +44,10 @@ abstract class AppStrings {
   String torchState({required bool on, int? percent});
   String beaconState({required bool on, int? percent});
 
+  /// Nombre del mando y estado de la inhibición del apagado de pantalla, que
+  /// en la pantalla solo se distingue por el color de los iconos.
+  String padLabel({required bool keepAwake});
+
   /// Nivel de la burbuja del centro de la brújula.
   String get levelCentered;
   String get levelOff;

@@ -62,13 +62,15 @@ void main() {
     },
   );
 
-  test('apagar el modo faro devuelve el brillo y libera la pantalla', () async {
+  test('apagar el modo faro devuelve el brillo de la pantalla', () async {
     await controller.setBeacon(enabled: true);
     await controller.setBeacon(enabled: false);
 
     expect(controller.beaconOn, isFalse);
     expect(services.screenBrightness, isNull);
-    expect(services.keepScreenOn, isFalse);
+    // La pantalla sigue sin apagarse sola: eso lo manda la inhibición general,
+    // que viene puesta y no depende del faro.
+    expect(services.keepScreenOn, isTrue);
   });
 
   test('los dos controles son independientes', () async {
@@ -98,9 +100,99 @@ void main() {
     () async {
       await controller.reapplyScreenSettings();
 
-      expect(services.calls, isEmpty);
+      // Solo se vuelve a pedir el bloqueo, que el sistema suelta al ocultarse
+      // la aplicación.
+      expect(services.calls, ['setKeepScreenOn(true)']);
+      expect(services.screenBrightness, isNull);
     },
   );
+
+  group('bloqueo del apagado de pantalla', () {
+    test('viene activado y se aplica al arrancar', () async {
+      expect(controller.keepAwake, isTrue);
+
+      await controller.applyKeepAwake();
+
+      expect(services.keepScreenOn, isTrue);
+    });
+
+    test('se puede desactivar y volver a activar', () async {
+      await controller.applyKeepAwake();
+
+      await controller.toggleKeepAwake();
+      expect(controller.keepAwake, isFalse);
+      expect(services.keepScreenOn, isFalse);
+
+      await controller.toggleKeepAwake();
+      expect(controller.keepAwake, isTrue);
+      expect(services.keepScreenOn, isTrue);
+    });
+
+    test('el cambio se confirma con una vibración', () async {
+      await controller.toggleKeepAwake();
+      await controller.toggleKeepAwake();
+
+      expect(services.haptics, [HapticCue.turnedOff, HapticCue.turnedOn]);
+    });
+
+    test('el modo faro mantiene la pantalla aunque esté desactivado', () async {
+      await controller.toggleKeepAwake();
+      expect(services.keepScreenOn, isFalse);
+
+      await controller.setBeacon(enabled: true);
+      expect(services.keepScreenOn, isTrue);
+
+      // Y al apagar el faro se vuelve a respetar lo que se eligió.
+      await controller.setBeacon(enabled: false);
+      expect(services.keepScreenOn, isFalse);
+    });
+  });
+
+  group('conmutar desde la barra de estado', () {
+    test('la linterna se enciende al máximo y se apaga', () async {
+      await controller.toggleTorch();
+
+      expect(controller.torchOn, isTrue);
+      expect(services.torchIntensity, closeTo(1, 0.001));
+
+      await controller.toggleTorch();
+
+      expect(controller.torchOn, isFalse);
+      expect(services.torchOn, isFalse);
+    });
+
+    test('la linterna recupera el nivel que tenía', () async {
+      await controller.setTorch(enabled: true, intensity: 0.4);
+      await controller.toggleTorch();
+      await controller.toggleTorch();
+
+      expect(controller.torchOn, isTrue);
+      expect(controller.torchIntensity, closeTo(0.4, 0.001));
+    });
+
+    test('el faro se activa al máximo y se desactiva', () async {
+      await controller.toggleBeacon();
+
+      expect(controller.beaconOn, isTrue);
+      expect(controller.beaconLevel, closeTo(1, 0.001));
+      expect(services.screenBrightness, closeTo(1, 0.001));
+
+      await controller.toggleBeacon();
+
+      expect(controller.beaconOn, isFalse);
+      expect(services.screenBrightness, isNull);
+    });
+
+    test('el faro recupera el brillo que tenía', () async {
+      await controller.setBeacon(enabled: true, level: 0.5);
+      final chosen = services.screenBrightness!;
+      await controller.toggleBeacon();
+      await controller.toggleBeacon();
+
+      expect(controller.beaconOn, isTrue);
+      expect(services.screenBrightness, closeTo(chosen, 0.001));
+    });
+  });
 
   group('vibración háptica', () {
     test(

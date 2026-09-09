@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../controllers/controls_controller.dart';
 import '../l10n/app_strings.dart';
 import '../services/orientation_service.dart';
+import '../theme.dart';
 import '../widgets/compass_dial.dart';
 import '../widgets/control_pad.dart';
 import '../widgets/heading_ribbon.dart';
@@ -44,6 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
     // Saber si el flash se puede graduar cambia cómo se comporta el eje
     // vertical del mando, así que se pregunta cuanto antes.
     widget.controller.loadTorchCapabilities();
+    // La aplicación se usa mirando a otro sitio: la pantalla no se apaga sola
+    // mientras esté abierta, salvo que se desactive desde el mando.
+    widget.controller.applyKeepAwake();
   }
 
   @override
@@ -115,11 +119,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         torchIntensity: widget.controller.torchIntensity,
                         beaconLevel: widget.controller.beaconLevel,
                         torchIsGradual: widget.controller.torchIsGradual,
+                        keepAwake: widget.controller.keepAwake,
                         onTorchChanged: (enabled, level) => widget.controller
                             .setTorch(enabled: enabled, intensity: level),
                         onBeaconChanged: (enabled, level) => widget.controller
                             .setBeacon(enabled: enabled, level: level),
                         onZoneChanged: widget.controller.pulseZoneChange,
+                        onToggleKeepAwake: widget.controller.toggleKeepAwake,
                       ),
                     ),
                   ),
@@ -135,6 +141,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
 /// Fila superior: el modo faro en una esquina, la linterna en la otra y, en
 /// medio, el icono de la vista que está activa.
+///
+/// Los dos chips no solo informan: tocarlos enciende o apaga su control, y el
+/// mando de abajo se coloca solo donde corresponda.
 class _StatusBar extends StatelessWidget {
   const _StatusBar({required this.controller, required this.pose});
 
@@ -158,14 +167,19 @@ class _StatusBar extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: _StateChip(
-                    icon: Icons.wb_sunny_rounded,
+                    key: const ValueKey('beaconChip'),
+                    // El mismo icono que lleva el faro en el mando, para que
+                    // se lean como el mismo control.
+                    icon: Icons.brightness_high,
                     on: controller.beaconOn,
                     color: theme.colorScheme.secondary,
+                    badgeColor: AppColors.beaconLight,
                     semanticsLabel: strings.beaconState(
                       on: controller.beaconOn,
                       percent: (controller.beaconLevel * 100).round(),
                     ),
                     level: controller.beaconLevel,
+                    onTap: controller.toggleBeacon,
                   ),
                 ),
               ),
@@ -181,6 +195,7 @@ class _StatusBar extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: _StateChip(
+                    key: const ValueKey('torchChip'),
                     icon: Icons.flashlight_on_rounded,
                     on: controller.torchOn,
                     color: theme.colorScheme.primary,
@@ -194,6 +209,7 @@ class _StatusBar extends StatelessWidget {
                         ? controller.torchIntensity
                         : null,
                     textFirst: true,
+                    onTap: controller.toggleTorch,
                   ),
                 ),
               ),
@@ -207,17 +223,26 @@ class _StatusBar extends StatelessWidget {
 
 class _StateChip extends StatelessWidget {
   const _StateChip({
+    super.key,
     required this.icon,
     required this.on,
     required this.color,
     required this.semanticsLabel,
+    required this.onTap,
+    this.badgeColor,
     this.level,
     this.textFirst = false,
   });
 
   final IconData icon;
   final bool on;
+
+  /// Color del porcentaje, que va sobre el fondo de la pantalla.
   final Color color;
+
+  /// Color del disco del icono, cuando no es el mismo que el del texto. El
+  /// porcentaje necesita contrastar con el fondo y el disco no.
+  final Color? badgeColor;
 
   /// Cómo lo cuenta un lector de pantalla; en la pantalla solo se ve el icono
   /// y, si el control se gradúa, el porcentaje.
@@ -228,6 +253,9 @@ class _StateChip extends StatelessWidget {
 
   /// El porcentaje va a la izquierda del icono, para el chip de la derecha.
   final bool textFirst;
+
+  /// Enciende o apaga el control al tocar el chip.
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -240,7 +268,9 @@ class _StateChip extends StatelessWidget {
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: on ? color : scheme.onSurface.withValues(alpha: 0.08),
+        color: on
+            ? (badgeColor ?? color)
+            : scheme.onSurface.withValues(alpha: 0.08),
       ),
       child: Icon(
         icon,
@@ -261,13 +291,29 @@ class _StateChip extends StatelessWidget {
 
     return Semantics(
       label: semanticsLabel,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (textFirst && text != null) ...[text, const SizedBox(width: 4)],
-          badge,
-          if (!textFirst && text != null) ...[const SizedBox(width: 4), text],
-        ],
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          // El disco es pequeño: el relleno le da un área de toque cómoda sin
+          // separar los chips de las esquinas.
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (textFirst && text != null) ...[
+                text,
+                const SizedBox(width: 4),
+              ],
+              badge,
+              if (!textFirst && text != null) ...[
+                const SizedBox(width: 4),
+                text,
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -39,6 +39,16 @@ class AppStringsEs extends AppStrings {
   }
 
   @override
+  String padLabel({required bool keepAwake}) {
+    const pad = 'Mando de linterna y modo faro.';
+    return keepAwake
+        ? '$pad La pantalla no se apaga sola; mantén pulsado el cuadro de '
+              'reposo para permitir que se apague.'
+        : '$pad La pantalla puede apagarse sola; mantén pulsado el cuadro de '
+              'reposo para impedirlo.';
+  }
+
+  @override
   String get levelCentered => 'Teléfono nivelado';
 
   @override
