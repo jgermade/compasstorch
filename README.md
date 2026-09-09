@@ -25,9 +25,10 @@ La pantalla se divide en dos mitades:
   Encima de la brújula, en las esquinas, el estado de los dos controles: el
   modo faro arriba a la izquierda y la linterna arriba a la derecha, cada uno
   con su porcentaje hacia el centro y con el mismo icono que lleva su eje en el
-  mando. En medio, el icono de la vista activa. Los dos son pulsables: tocarlos
-  enciende o apaga su control —recuperando el último nivel que tuviera— y el
-  mando de abajo se coloca solo donde corresponda.
+  mando. En medio, el icono de la vista activa. Los dos son pulsables y los dos
+  conmutan igual: **apagado o al 100 %**, sin recuperar el nivel de antes. El
+  chip es el atajo para tener toda la luz de golpe; graduar es cosa del mando,
+  que se coloca solo donde corresponda.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
   superficie de plástico rugoso con un círculo translúcido que hace de marca.

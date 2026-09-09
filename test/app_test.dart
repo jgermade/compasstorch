@@ -233,7 +233,12 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('beaconChip')));
       await tester.pumpAndSettle();
-      expect(services.screenBrightness, isNotNull);
+      // Los dos chips conmutan igual: apagado o al 100 %.
+      expect(services.screenBrightness, closeTo(1, 0.001));
+      expect(
+        tester.widget<ControlPad>(find.byType(ControlPad)).beaconLevel,
+        closeTo(1, 0.001),
+      );
 
       // El mando sigue en su sitio: los chips no lo mueven de la pantalla.
       expect(padRect(tester), rest);
