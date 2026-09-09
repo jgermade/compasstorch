@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
+import '../theme.dart';
 import 'bearings.dart';
 import 'readout.dart';
 
@@ -326,17 +327,17 @@ class _HubPainter extends CustomPainter {
     // Tapa central: la lectura numérica va encima de la aguja.
     canvas.drawCircle(center, hubRadius, Paint()..color = hubColor);
 
-    final bubbleRadius = hubRadius * 0.66;
+    final bubbleRadius = hubRadius * 0.58;
     final travel = hubRadius - bubbleRadius;
     final bubble = center + Offset(level.dx * travel, level.dy * travel);
     // Disco de un solo tono, sin degradado en el borde: la gota se recorta
-    // limpia sobre la tapa. Va bien cargada de color para que se siga viendo
-    // de reojo, sin llegar a opaca: los grados van encima y necesitan que el
-    // fondo no compita con ellos.
+    // limpia sobre la tapa. Gris y muy translúcido: el nivel es un dato de
+    // apoyo, así que se insinúa por el rabillo del ojo y deja los grados y el
+    // rumbo, que van encima, como lo único que destaca de la tapa.
     canvas.drawCircle(
       bubble,
       bubbleRadius,
-      Paint()..color = color.withValues(alpha: levelled ? 0.72 : 0.62),
+      Paint()..color = AppColors.level.withValues(alpha: 0.2),
     );
 
     // El borde de la tapa solo cambia de color al centrarse la burbuja: si
