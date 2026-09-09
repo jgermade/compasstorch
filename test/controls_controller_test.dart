@@ -161,13 +161,14 @@ void main() {
       expect(services.torchOn, isFalse);
     });
 
-    test('la linterna recupera el nivel que tenía', () async {
+    test('la linterna vuelve al 100 % aunque estuviera a media luz', () async {
       await controller.setTorch(enabled: true, intensity: 0.4);
       await controller.toggleTorch();
       await controller.toggleTorch();
 
       expect(controller.torchOn, isTrue);
-      expect(controller.torchIntensity, closeTo(0.4, 0.001));
+      expect(controller.torchIntensity, closeTo(1, 0.001));
+      expect(services.torchIntensity, closeTo(1, 0.001));
     });
 
     test('el faro se activa al máximo y se desactiva', () async {
@@ -183,14 +184,14 @@ void main() {
       expect(services.screenBrightness, isNull);
     });
 
-    test('el faro recupera el brillo que tenía', () async {
+    test('el faro vuelve al 100 % aunque estuviera a media luz', () async {
       await controller.setBeacon(enabled: true, level: 0.5);
-      final chosen = services.screenBrightness!;
       await controller.toggleBeacon();
       await controller.toggleBeacon();
 
       expect(controller.beaconOn, isTrue);
-      expect(services.screenBrightness, closeTo(chosen, 0.001));
+      expect(controller.beaconLevel, closeTo(1, 0.001));
+      expect(services.screenBrightness, closeTo(1, 0.001));
     });
   });
 

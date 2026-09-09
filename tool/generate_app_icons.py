@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from io import BytesIO
+from math import ceil
 from pathlib import Path
 
 import cairosvg
@@ -27,8 +28,10 @@ BG_BOTTOM = (0x0A, 0x0B, 0x0C)
 
 SS = 2  # supermuestreo: se compone al doble y se reduce con Lanczos.
 
-# Parte del lado del icono que ocupa el dibujo.
-FULL_BLEED = 0.86
+# Parte del lado del icono que ocupa el cuadrado del dibujo. Ese cuadrado lleva
+# margen transparente a los lados y abajo —lo que sobra al centrarlo en la
+# brújula—, así que puede estirarse más que el recorte ajustado al contenido.
+FULL_BLEED = 0.9
 
 # El icono adaptativo dibuja sobre 108dp pero solo garantiza los 66dp
 # centrales: el resto se lo puede comer la máscara del lanzador.
@@ -40,15 +43,27 @@ MONOCHROME_THRESHOLD = 60
 
 
 def artwork(px: int) -> Image.Image:
-    """El SVG rasterizado y recortado a su contenido, de [px] en su lado mayor."""
-    raw = cairosvg.svg2png(url=str(SVG), output_width=px * 2, output_height=px * 2)
+    """El SVG rasterizado a un cuadrado de [px] de lado, centrado en la brújula.
+
+    El dibujo no está centrado en su propia caja: la llama de la linterna
+    sobresale bastante por arriba, así que recortar al contenido y centrar esa
+    caja deja el círculo de la brújula desplazado hacia abajo. El SVG sí está
+    compuesto con el círculo en el centro de su lienzo, de modo que se recorta
+    un cuadrado centrado en ese punto, con el lado justo para que no se pierda
+    nada del dibujo.
+    """
+    canvas = px * 2
+    raw = cairosvg.svg2png(url=str(SVG), output_width=canvas, output_height=canvas)
     image = Image.open(BytesIO(raw)).convert("RGBA")
-    image = image.crop(image.getbbox())
-    scale = px / max(image.size)
-    return image.resize(
-        (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
-        Image.LANCZOS,
+
+    left, top, right, bottom = image.getbbox()
+    centre = canvas // 2
+    half = ceil(
+        max(centre - left, right - centre, centre - top, bottom - centre)
     )
+    square = Image.new("RGBA", (2 * half, 2 * half), (0, 0, 0, 0))
+    square.alpha_composite(image, (half - centre, half - centre))
+    return square.resize((px, px), Image.LANCZOS)
 
 
 def silhouette(image: Image.Image) -> Image.Image:

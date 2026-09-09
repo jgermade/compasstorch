@@ -330,21 +330,24 @@ class _HubPainter extends CustomPainter {
     final travel = hubRadius - bubbleRadius;
     final bubble = center + Offset(level.dx * travel, level.dy * travel);
     // Disco de un solo tono, sin degradado en el borde: la gota se recorta
-    // limpia sobre la tapa y se sigue leyendo debajo de los grados.
+    // limpia sobre la tapa. Va bien cargada de color para que se siga viendo
+    // de reojo, sin llegar a opaca: los grados van encima y necesitan que el
+    // fondo no compita con ellos.
     canvas.drawCircle(
       bubble,
       bubbleRadius,
-      Paint()..color = color.withValues(alpha: levelled ? 0.46 : 0.38),
+      Paint()..color = color.withValues(alpha: levelled ? 0.72 : 0.62),
     );
 
     // El borde de la tapa solo cambia de color al centrarse la burbuja: si
-    // además engordara, el círculo daría un salto al nivelarse.
+    // además engordara, el círculo daría un salto al nivelarse. Es un trazo
+    // fino a propósito: solo encuadra la gota, no compite con ella.
     canvas.drawCircle(
       center,
       hubRadius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
+        ..strokeWidth = 1
         ..color = levelled ? color : hubBorder.withValues(alpha: 0.75),
     );
 

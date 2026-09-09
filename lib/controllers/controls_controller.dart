@@ -217,20 +217,21 @@ class ControlsController extends ChangeNotifier {
     }
   }
 
-  /// Enciende o apaga la linterna desde la barra de estado. Al encenderla
-  /// recupera el último nivel usado, y el mando se coloca solo donde toca.
+  /// Enciende o apaga la linterna desde la barra de estado, siempre al 100 %.
+  ///
+  /// El chip es el atajo: se toca para tener toda la luz de golpe, no para
+  /// recuperar el nivel de antes. Graduar es lo que hace el mando, y ahí el
+  /// nivel sigue estando donde se dejó. El mando se coloca solo donde toca.
   Future<void> toggleTorch() {
     if (_torchOn) return setTorch(enabled: false);
-    return setTorch(
-      enabled: true,
-      intensity: _torchIntensity > 0 ? _torchIntensity : 1,
-    );
+    return setTorch(enabled: true, intensity: 1);
   }
 
-  /// Activa o desactiva el modo faro desde la barra de estado.
+  /// Activa o desactiva el modo faro desde la barra de estado, también al
+  /// 100 %, para que los dos chips se comporten igual.
   Future<void> toggleBeacon() {
     if (_beaconOn) return setBeacon(enabled: false);
-    return setBeacon(enabled: true, level: _beaconLevel > 0 ? _beaconLevel : 1);
+    return setBeacon(enabled: true, level: 1);
   }
 
   /// Aplica la inhibición del apagado de pantalla. Es idempotente: se llama al
