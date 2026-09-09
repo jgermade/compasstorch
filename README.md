@@ -274,6 +274,10 @@ su capa monocroma para los iconos temáticos de Android 13— con:
 pip install pillow cairosvg
 python3 tool/generate_app_icons.py
 ```
+
+El dibujo se encuadra en un cuadrado centrado en el centro del lienzo del SVG,
+que es donde está el círculo de la brújula. Ajustarlo a la caja del contenido
+lo dejaría descentrado, porque la llama de la linterna sobresale por arriba.
  **Nada de esto se ha ejecutado todavía en un teléfono real**,
 así que el comportamiento del flash y del brillo sobre hardware está sin
 confirmar.
