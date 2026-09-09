@@ -41,6 +41,21 @@ class CompassDial extends StatefulWidget {
   static const double levelTolerance = 0.02;
   static const double levelRelease = 0.035;
 
+  /// Desplazamiento de la burbuja dentro de la tapa, de 0 a 1 en fracción del
+  /// recorrido disponible y ya acotado al **círculo** unidad.
+  ///
+  /// Se recorta en distancia, no eje a eje: acotando cada eje por su cuenta la
+  /// gota queda contenida en un cuadrado y, al inclinar en diagonal, los dos
+  /// desplazamientos se suman y asoma por las esquinas de la tapa.
+  ///
+  /// La burbuja se va hacia el lado que se levanta, como en un nivel de
+  /// verdad: la pantalla sube por donde ella va.
+  static Offset levelShift(double levelX, double levelY) {
+    final raw = Offset(levelX / levelSpan, -levelY / levelSpan);
+    final reach = raw.distance;
+    return reach > 1 ? raw / reach : raw;
+  }
+
   @override
   State<CompassDial> createState() => _CompassDialState();
 }
@@ -99,17 +114,9 @@ class _CompassDialState extends State<CompassDial> {
                       color: theme.colorScheme.primary,
                       hubColor: theme.colorScheme.surface,
                       hubBorder: theme.colorScheme.outline,
-                      // La burbuja se va hacia el lado que se levanta, como en
-                      // un nivel de verdad: la pantalla sube por donde ella va.
-                      level: Offset(
-                        (widget.levelX / CompassDial.levelSpan).clamp(
-                          -1.0,
-                          1.0,
-                        ),
-                        (-widget.levelY / CompassDial.levelSpan).clamp(
-                          -1.0,
-                          1.0,
-                        ),
+                      level: CompassDial.levelShift(
+                        widget.levelX,
+                        widget.levelY,
                       ),
                       levelled: _levelled,
                     ),
@@ -309,7 +316,8 @@ class _HubPainter extends CustomPainter {
   final Color hubColor;
   final Color hubBorder;
 
-  /// Desplazamiento de la burbuja, de -1 a 1 en cada eje de la pantalla.
+  /// Desplazamiento de la burbuja en fracción del recorrido, ya acotado al
+  /// círculo unidad por [CompassDial.levelShift].
   final Offset level;
 
   /// El teléfono está horizontal: se resalta el borde de la tapa.
@@ -328,14 +336,11 @@ class _HubPainter extends CustomPainter {
     canvas.drawCircle(center, hubRadius, Paint()..color = hubColor);
 
     final bubbleRadius = hubRadius * 0.70;
+    // El recorrido deja fuera el radio de la gota, así que con el
+    // desplazamiento acotado al círculo unidad rueda por dentro del borde de
+    // la tapa: como mucho lo toca, nunca lo cruza.
     final travel = hubRadius - bubbleRadius;
-    // El desplazamiento viene acotado eje a eje, así que en diagonal la suma
-    // de los dos se saldría de la tapa: se recorta también en distancia para
-    // que la gota ruede por dentro del borde, como en un nivel de burbuja de
-    // verdad, y no asome nunca por fuera.
-    var shift = Offset(level.dx * travel, level.dy * travel);
-    if (shift.distance > travel) shift = shift / shift.distance * travel;
-    final bubble = center + shift;
+    final bubble = center + level * travel;
     // Disco de un solo tono, sin degradado en el borde: la gota se recorta
     // limpia sobre la tapa. Gris y muy translúcido: el nivel es un dato de
     // apoyo, así que se insinúa por el rabillo del ojo y deja los grados y el
