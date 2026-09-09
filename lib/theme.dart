@@ -19,6 +19,11 @@ class AppColors {
   static const Color darkPlastic = Color(0xFF171C22);
   static const Color lightPlastic = Color(0xFFDBE0E5);
 
+  /// Gris de la gota de nivel: neutro a propósito y el mismo en los dos temas,
+  /// para que la burbuja se lea como una referencia discreta y no como un
+  /// tercer acento compitiendo con la linterna y el faro.
+  static const Color level = Color(0xFF8A9099);
+
   static const Color darkBackground = Color(0xFF07090C);
   static const Color darkSurface = Color(0xFF131A22);
   static const Color darkOutline = Color(0xFF2A3644);
