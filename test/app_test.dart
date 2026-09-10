@@ -4,13 +4,16 @@ import 'package:compasstorch/main.dart';
 import 'package:compasstorch/screens/home_screen.dart';
 import 'package:compasstorch/services/haptics.dart';
 import 'package:compasstorch/services/orientation_service.dart';
+import 'package:compasstorch/services/selfie_camera.dart';
 import 'package:compasstorch/widgets/compass_dial.dart';
 import 'package:compasstorch/widgets/control_pad.dart';
 import 'package:compasstorch/widgets/heading_ribbon.dart';
+import 'package:compasstorch/widgets/selfie_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_device_services.dart';
+import 'fake_selfie_camera.dart';
 
 class FakeOrientationService implements OrientationService {
   final _controller = StreamController<OrientationReading>.broadcast();
@@ -67,17 +70,23 @@ void main() {
   group('aplicación', () {
     late FakeDeviceServices services;
     late FakeOrientationService orientation;
+    late FakeSelfieCamera camera;
 
     setUp(() {
       services = FakeDeviceServices();
       orientation = FakeOrientationService();
+      camera = FakeSelfieCamera();
     });
 
     tearDown(() => orientation.close());
 
     Future<void> pumpApp(WidgetTester tester) async {
       await tester.pumpWidget(
-        CompassTorchApp(services: services, orientation: orientation),
+        CompassTorchApp(
+          services: services,
+          orientation: orientation,
+          camera: camera,
+        ),
       );
       await tester.pump();
     }
@@ -123,6 +132,75 @@ void main() {
       expect(view.dx, closeTo(width / 2, 1));
       // El nombre de la vista ya no se escribe: queda solo el icono.
       expect(find.textContaining('compass'), findsNothing);
+    });
+
+    testWidgets('levantado, el botón de la barra alterna regla y cámara', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      orientation.emit(tilt: 80, heading: 42);
+      await tester.pumpAndSettle();
+
+      // Se entra por la regla, y el botón anuncia que hay cámara detrás.
+      expect(find.byType(HeadingRibbon), findsOneWidget);
+      expect(find.byIcon(Icons.photo_camera_front_rounded), findsOneWidget);
+      expect(camera.starts, 0);
+
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelfieView), findsOneWidget);
+      expect(find.byType(HeadingRibbon), findsNothing);
+      expect(camera.starts, 1);
+      expect(find.byKey(const ValueKey('fakePreview')), findsOneWidget);
+      // La regla sigue anunciada en el botón, para poder volver.
+      expect(find.byIcon(Icons.straighten_rounded), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+      expect(find.byType(HeadingRibbon), findsOneWidget);
+      expect(find.byType(SelfieView), findsNothing);
+      // Al salir de la vista la cámara se suelta.
+      expect(camera.stops, 1);
+      expect(camera.status, SelfieCameraStatus.off);
+    });
+
+    testWidgets('tumbado no hay botón de vista y la cámara se suelta', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      orientation.emit(tilt: 80);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelfieView), findsOneWidget);
+
+      orientation.emit(tilt: 5);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CompassDial), findsOneWidget);
+      expect(camera.status, SelfieCameraStatus.off);
+      // Con el teléfono tumbado no hay nada que elegir: solo el icono.
+      expect(find.byKey(const ValueKey('viewToggle')), findsNothing);
+      expect(find.byIcon(Icons.explore_rounded), findsOneWidget);
+
+      // Y al volver a levantarlo se entra otra vez por la regla.
+      orientation.emit(tilt: 80);
+      await tester.pumpAndSettle();
+      expect(find.byType(HeadingRibbon), findsOneWidget);
+    });
+
+    testWidgets('sin permiso de cámara se explica en la propia vista', (
+      tester,
+    ) async {
+      camera.statusOnStart = SelfieCameraStatus.denied;
+      await pumpApp(tester);
+      orientation.emit(tilt: 80);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No camera permission'), findsOneWidget);
+      expect(find.byKey(const ValueKey('fakePreview')), findsNothing);
     });
 
     testWidgets('la burbuja de nivel avisa cuando el teléfono está plano', (

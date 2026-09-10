@@ -1,9 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- La linterna usa CameraManager.setTorchMode, que no exige el permiso
-         CAMERA. Se declara el flash como opcional para no excluir del listado
-         a los dispositivos que no lo tengan: la brújula sigue funcionando. -->
+         CAMERA. El espejo del modo vertical sí abre la cámara frontal, y ese
+         permiso se pide la primera vez que se toca el botón de la cámara: sin
+         darlo, el resto de la aplicación sigue funcionando igual. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Se declara el flash como opcional para no excluir del listado a los
+         dispositivos que no lo tengan: la brújula sigue funcionando. Lo mismo
+         con la cámara frontal, que solo hace falta para el espejo. -->
     <uses-feature
         android:name="android.hardware.camera.flash"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.any"
         android:required="false" />
     <uses-feature
         android:name="android.hardware.sensor.compass"

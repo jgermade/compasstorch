@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../controllers/controls_controller.dart';
 import '../l10n/app_strings.dart';
 import '../services/orientation_service.dart';
+import '../services/selfie_camera.dart';
 import '../theme.dart';
 import '../widgets/compass_dial.dart';
 import '../widgets/control_pad.dart';
 import '../widgets/heading_ribbon.dart';
+import '../widgets/selfie_view.dart';
 
 /// Decide qué vista mostrar según la inclinación del teléfono.
 ///
@@ -26,10 +28,15 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.orientation,
+    required this.camera,
   });
 
   final ControlsController controller;
   final OrientationService orientation;
+
+  /// Cámara frontal de la vista de espejo, que se alterna con la regla de
+  /// rumbos cuando el teléfono está levantado.
+  final SelfieCamera camera;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -37,6 +44,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   DevicePose _pose = DevicePose.flat;
+
+  /// En vertical se está viendo la cámara frontal en vez de la regla de
+  /// rumbos. Con el teléfono tumbado no pinta nada, así que se vuelve sola a
+  /// la regla al bajar el teléfono.
+  bool _selfie = false;
 
   @override
   void initState() {
@@ -81,10 +93,18 @@ class _HomeScreenState extends State<HomeScreen> {
             if (reading != null) {
               _pose = poseFor(reading.tilt, _pose);
             }
+            // La cámara es cosa del modo vertical: al tumbar el teléfono se
+            // vuelve a la regla, y con ella la cámara se suelta.
+            if (_pose == DevicePose.flat) _selfie = false;
 
             return Column(
               children: [
-                _StatusBar(controller: widget.controller, pose: _pose),
+                _StatusBar(
+                  controller: widget.controller,
+                  pose: _pose,
+                  selfie: _selfie,
+                  onToggleView: () => setState(() => _selfie = !_selfie),
+                ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -92,19 +112,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       duration: const Duration(milliseconds: 320),
                       switchInCurve: Curves.easeOut,
                       switchOutCurve: Curves.easeIn,
-                      child: _pose == DevicePose.flat
-                          ? CompassDial(
-                              key: const ValueKey('dial'),
-                              heading: reading?.headingTop,
-                              levelX: reading?.levelX ?? 0,
-                              levelY: reading?.levelY ?? 0,
-                              onLevelled: widget.controller.pulseLevelled,
-                            )
-                          : HeadingRibbon(
-                              key: const ValueKey('ribbon'),
-                              heading: reading?.headingCamera,
-                              elevation: reading?.elevation ?? 0,
-                            ),
+                      child: switch ((_pose, _selfie)) {
+                        (DevicePose.flat, _) => CompassDial(
+                          key: const ValueKey('dial'),
+                          heading: reading?.headingTop,
+                          levelX: reading?.levelX ?? 0,
+                          levelY: reading?.levelY ?? 0,
+                          onLevelled: widget.controller.pulseLevelled,
+                        ),
+                        (DevicePose.upright, false) => HeadingRibbon(
+                          key: const ValueKey('ribbon'),
+                          heading: reading?.headingCamera,
+                          elevation: reading?.elevation ?? 0,
+                        ),
+                        (DevicePose.upright, true) => SelfieView(
+                          key: const ValueKey('selfie'),
+                          camera: widget.camera,
+                        ),
+                      },
                     ),
                   ),
                 ),
@@ -140,15 +165,28 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// Fila superior: el modo faro en una esquina, la linterna en la otra y, en
-/// medio, el icono de la vista que está activa.
+/// medio, la vista que está activa.
 ///
 /// Los dos chips no solo informan: tocarlos enciende o apaga su control, y el
-/// mando de abajo se coloca solo donde corresponda.
+/// mando de abajo se coloca solo donde corresponda. En medio, con el teléfono
+/// tumbado solo se ve el icono de la brújula, porque no hay nada que elegir;
+/// levantado se convierte en un botón que alterna la regla y la cámara.
 class _StatusBar extends StatelessWidget {
-  const _StatusBar({required this.controller, required this.pose});
+  const _StatusBar({
+    required this.controller,
+    required this.pose,
+    required this.selfie,
+    required this.onToggleView,
+  });
 
   final ControlsController controller;
   final DevicePose pose;
+
+  /// En vertical se está viendo la cámara frontal en vez de la regla.
+  final bool selfie;
+
+  /// Cambia entre las dos vistas del modo vertical.
+  final VoidCallback onToggleView;
 
   @override
   Widget build(BuildContext context) {
@@ -183,14 +221,17 @@ class _StatusBar extends StatelessWidget {
                   ),
                 ),
               ),
-              Semantics(
-                label: flat ? strings.compassView : strings.bearingRulerView,
-                child: Icon(
-                  flat ? Icons.explore_rounded : Icons.straighten_rounded,
-                  size: 18,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                ),
-              ),
+              if (flat)
+                Semantics(
+                  label: strings.compassView,
+                  child: Icon(
+                    Icons.explore_rounded,
+                    size: 18,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                )
+              else
+                _ViewToggle(selfie: selfie, onTap: onToggleView),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -217,6 +258,73 @@ class _StatusBar extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Botón de las dos vistas del modo vertical: la regla de rumbos y la cámara
+/// frontal. Los dos iconos se ven siempre, y el de la vista activa es el que
+/// va encendido, para que se lea de un vistazo qué se está viendo y qué hay
+/// al otro lado.
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.selfie, required this.onTap});
+
+  final bool selfie;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      label: strings.viewToggle(selfie: selfie),
+      button: true,
+      child: InkWell(
+        key: const ValueKey('viewToggle'),
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Container(
+          // Holgado a propósito: los dos iconos son pequeños y el botón
+          // necesita un área de toque cómoda.
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: ShapeDecoration(
+            shape: StadiumBorder(
+              side: BorderSide(color: scheme.onSurface.withValues(alpha: 0.18)),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ViewToggleIcon(icon: Icons.straighten_rounded, active: !selfie),
+              const SizedBox(width: 8),
+              _ViewToggleIcon(
+                icon: Icons.photo_camera_front_rounded,
+                active: selfie,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewToggleIcon extends StatelessWidget {
+  const _ViewToggleIcon({required this.icon, required this.active});
+
+  final IconData icon;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 220),
+      // El icono apagado no desaparece: se queda tenue para anunciar la otra
+      // vista, que es a donde lleva el botón.
+      opacity: active ? 0.9 : 0.3,
+      child: Icon(icon, size: 18, color: scheme.onSurface),
     );
   }
 }

@@ -4,14 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'app_test.dart' show FakeOrientationService;
 import 'fake_device_services.dart';
+import 'fake_selfie_camera.dart';
 
 void main() {
   late FakeDeviceServices services;
   late FakeOrientationService orientation;
+  late FakeSelfieCamera camera;
 
   setUp(() {
     services = FakeDeviceServices();
     orientation = FakeOrientationService();
+    camera = FakeSelfieCamera();
   });
 
   tearDown(() {
@@ -23,7 +26,11 @@ void main() {
   Future<void> pumpApp(WidgetTester tester, Locale locale) async {
     tester.platformDispatcher.localesTestValue = [locale];
     await tester.pumpWidget(
-      CompassTorchApp(services: services, orientation: orientation),
+      CompassTorchApp(
+        services: services,
+        orientation: orientation,
+        camera: camera,
+      ),
     );
     await tester.pump();
   }

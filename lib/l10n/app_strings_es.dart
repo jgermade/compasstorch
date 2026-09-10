@@ -23,6 +23,33 @@ class AppStringsEs extends AppStrings {
   String get bearingRulerView => 'En vertical: regla de rumbos';
 
   @override
+  String get selfieView => 'En vertical: cámara frontal';
+
+  @override
+  String viewToggle({required bool selfie}) => selfie
+      ? 'Cámara frontal. Tocar para volver a la regla de rumbos.'
+      : 'Regla de rumbos. Tocar para ver la cámara frontal.';
+
+  @override
+  String get cameraOpening => 'Abriendo la cámara…';
+
+  @override
+  String get cameraDenied => 'Sin permiso para la cámara';
+
+  @override
+  String get cameraDeniedHint =>
+      'Dale permiso de cámara a CompassTorch en los ajustes del teléfono para '
+      'usar la pantalla como espejo.';
+
+  @override
+  String get cameraUnavailable => 'Cámara no disponible';
+
+  @override
+  String get cameraUnavailableHint =>
+      'Este dispositivo no tiene cámara frontal utilizable, o la está usando '
+      'otra aplicación.';
+
+  @override
   String torchState({required bool on, int? percent}) {
     if (!on) return 'Linterna apagada';
     return percent == null

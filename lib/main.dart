@@ -9,6 +9,7 @@ import 'l10n/app_strings.dart';
 import 'screens/home_screen.dart';
 import 'services/device_services.dart';
 import 'services/orientation_service.dart';
+import 'services/selfie_camera.dart';
 import 'theme.dart';
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
     CompassTorchApp(
       services: const PlatformDeviceServices(),
       orientation: SensorOrientationService(),
+      camera: PluginSelfieCamera(),
     ),
   );
 }
@@ -31,10 +33,12 @@ class CompassTorchApp extends StatefulWidget {
     super.key,
     required this.services,
     required this.orientation,
+    required this.camera,
   });
 
   final DeviceServices services;
   final OrientationService orientation;
+  final SelfieCamera camera;
 
   @override
   State<CompassTorchApp> createState() => _CompassTorchAppState();
@@ -69,6 +73,7 @@ class _CompassTorchAppState extends State<CompassTorchApp> {
   void dispose() {
     _lifecycle.dispose();
     _controller.dispose();
+    widget.camera.dispose();
     super.dispose();
   }
 
@@ -103,6 +108,7 @@ class _CompassTorchAppState extends State<CompassTorchApp> {
           home: HomeScreen(
             controller: _controller,
             orientation: widget.orientation,
+            camera: widget.camera,
           ),
         );
       },

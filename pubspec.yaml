@@ -39,6 +39,7 @@ dependencies:
   screen_brightness: ^2.1.11
   wakelock_plus: ^1.8.0
   sensors_plus: ^7.1.0
+  camera: ^0.12.1
 
 dev_dependencies:
   flutter_test:
