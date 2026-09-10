@@ -17,7 +17,8 @@ La pantalla se divide en dos mitades:
   - **En vertical** (levantado, apuntando a algo): una regla de líneas
     verticales que se desplaza con el rumbo al que apunta la parte trasera del
     teléfono, con los grados marcados, y a su derecha una barra vertical con la
-    **elevación sobre el horizonte**.
+    **elevación sobre el horizonte**. En vertical hay además una segunda vista,
+    el **espejo**: la imagen de la cámara frontal ocupando el mismo hueco.
 
   El cambio lo decide la inclinación del plano del teléfono (`tilt`), con una
   banda muerta entre 35° y 55° para que la vista no oscile en el límite.
@@ -25,14 +26,20 @@ La pantalla se divide en dos mitades:
   Encima de la brújula, en las esquinas, el estado de los dos controles: el
   modo faro arriba a la izquierda y la linterna arriba a la derecha, cada uno
   con su porcentaje hacia el centro y con el mismo icono que lleva su eje en el
-  mando. En medio, el icono de la vista activa. Los dos son pulsables y los dos
-  conmutan igual: **apagado o al 100 %**, sin recuperar el nivel de antes. El
-  chip es el atajo para tener toda la luz de golpe; graduar es cosa del mando,
-  que se coloca solo donde corresponda.
+  mando. Los dos son pulsables y los dos conmutan igual: **apagado o al
+  100 %**, sin recuperar el nivel de antes. El chip es el atajo para tener toda
+  la luz de golpe; graduar es cosa del mando, que se coloca solo donde
+  corresponda.
+
+  En medio de esos dos chips va la vista activa. Con el teléfono tumbado es
+  solo el icono de la brújula, porque no hay nada que elegir. Levantado se
+  convierte en un **botón con dos iconos**, la regla y la cámara: el de la
+  vista que se está viendo va encendido y el otro tenue, y tocarlo cambia entre
+  las dos. Al bajar el teléfono se vuelve siempre a la regla.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
   superficie de plástico rugoso con un círculo translúcido que hace de marca.
-  Dos líneas blancas cruzan el control de lado a lado, fijas al marco, y
+  Dos líneas translúcidas cruzan el control de lado a lado, fijas al marco, y
   delimitan un cuadro de reposo en la esquina inferior derecha donde la marca
   descansa. Un icono en cada cuadrante recuerda qué hace cada eje: la linterna
   arriba a la derecha y el modo faro abajo a la izquierda.
@@ -72,6 +79,28 @@ oscuras, apuntando a otro sitio y sin tocarla en un rato. La inhibición se
 puede quitar manteniendo pulsado el cuadro de reposo del mando; mientras esté
 quitada, los dos iconos del mando se pintan **en escala de grises**. El modo
 faro mantiene la pantalla encendida de todas formas, la haya quitado o no.
+
+## El espejo
+
+Con el teléfono levantado, el botón del medio de la barra cambia la regla de
+rumbos por la imagen de la cámara frontal. Es lo que le faltaba a una linterna
+para alumbrarse a uno mismo: luz y espejo a la vez, sin salir de la aplicación.
+
+La cámara se abre al entrar en la vista y **se suelta al salir**, al bajar el
+teléfono y al irse la aplicación a segundo plano, así que fuera del espejo
+queda libre para otras aplicaciones y no gasta batería. La imagen llega ya
+invertida como un espejo: tanto CameraX en Android como AVFoundation en iOS
+reflejan la vista previa de la cámara frontal, así que la aplicación no le da
+la vuelta por su cuenta.
+
+El **permiso de cámara** se pide la primera vez que se toca el botón. Si no se
+da, o si el dispositivo no tiene cámara frontal utilizable, la vista lo explica
+en su sitio y el resto de la aplicación sigue igual: el espejo es lo único que
+depende de la cámara.
+
+En Dart, `SelfieCamera` es la costura equivalente a `DeviceServices`: una
+interfaz con la implementación real encima del plugin `camera`, para poder
+probar la vista sin canales de plataforma.
 
 ## Idiomas
 
@@ -182,13 +211,23 @@ se desvía cerca de metales o imanes.
 | `sensors_plus` | Acelerómetro y magnetómetro (rumbo e inclinación) |
 | `screen_brightness` | Brillo de la pantalla, solo dentro de la aplicación |
 | `wakelock_plus` | Impedir que la pantalla se apague |
+| `camera` | Vista previa de la cámara frontal (el espejo) |
 
 La linterna va por canal propio, sin dependencia externa.
 
-En Android se usa `CameraManager`, que **no** requiere el permiso `CAMERA` para
-la linterna. `screen_brightness` cambia el brillo únicamente de esta aplicación,
-así que tampoco necesita `WRITE_SETTINGS`. En iOS los sensores de movimiento no
-piden permiso, pero se declara `NSMotionUsageDescription`.
+En Android la linterna usa `CameraManager.setTorchMode`, que **no** requiere el
+permiso `CAMERA`; el que sí lo requiere es el espejo, así que el permiso está
+declarado en el manifiesto y lo pide el propio plugin al abrir la cámara. La
+cámara y la cámara frontal se declaran como características **opcionales**,
+para no dejar fuera del listado a los dispositivos que no las tengan.
+`screen_brightness` cambia el brillo únicamente de esta aplicación, así que
+tampoco necesita `WRITE_SETTINGS`. En iOS los sensores de movimiento no piden
+permiso, pero se declara `NSMotionUsageDescription`, y el espejo añade
+`NSCameraUsageDescription`.
+
+Queda **sin comprobar en hardware** si la linterna y el espejo conviven: el
+flash va por la cámara trasera y el espejo por la frontal, pero hay
+dispositivos que no dejan las dos cosas a la vez.
 
 ## Compilación y publicación
 
@@ -256,8 +295,10 @@ gradación, ida y vuelta entre posición y nivel, y dónde se queda la marca al
 soltarla), los gestos sobre el mando, la lógica de los controles —jerarquía de
 vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un doble
 de `DeviceServices`, sin tocar los canales de plataforma, el aviso háptico del
-nivel (que no se repite ni se dispara solo al arrancar) y las traducciones,
-incluida la vuelta al inglés con un idioma sin traducir.
+nivel (que no se repite ni se dispara solo al arrancar), el botón que alterna
+la regla y el espejo —con un doble de `SelfieCamera`, que comprueba también que
+la cámara se suelta al salir de la vista— y las traducciones, incluida la
+vuelta al inglés con un idioma sin traducir.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
 una función pura, comprobable sin simular gestos.

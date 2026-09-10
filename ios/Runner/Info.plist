@@ -19,6 +19,9 @@
 	<!-- Se leen el acelerómetro y el magnetómetro para calcular el rumbo. -->
 	<key>NSMotionUsageDescription</key>
 	<string>Se usan los sensores de movimiento y el magnetómetro para calcular el rumbo de la brújula.</string>
+	<!-- La cámara frontal solo se abre para usar la pantalla como espejo. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Se usa la cámara frontal para ver tu propia imagen, como un espejo, con el teléfono levantado.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

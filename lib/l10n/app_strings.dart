@@ -38,6 +38,20 @@ abstract class AppStrings {
   /// superior se ve el icono, sin texto.
   String get compassView;
   String get bearingRulerView;
+  String get selfieView;
+
+  /// Botón que cambia entre la regla de rumbos y la cámara frontal. Dice qué
+  /// se está viendo y qué pasa al tocarlo, porque en la pantalla solo se ven
+  /// los dos iconos.
+  String viewToggle({required bool selfie});
+
+  /// Estado de la cámara frontal mientras no se ve la imagen: se está
+  /// abriendo, falta el permiso o no hay cámara utilizable.
+  String get cameraOpening;
+  String get cameraDenied;
+  String get cameraDeniedHint;
+  String get cameraUnavailable;
+  String get cameraUnavailableHint;
 
   /// Estado de la linterna y del modo faro, para lectores de pantalla.
   /// [percent] es `null` cuando ese control no se puede graduar.

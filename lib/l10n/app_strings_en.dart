@@ -24,6 +24,32 @@ class AppStringsEn extends AppStrings {
   String get bearingRulerView => 'Held upright: bearing ruler';
 
   @override
+  String get selfieView => 'Held upright: front camera';
+
+  @override
+  String viewToggle({required bool selfie}) => selfie
+      ? 'Front camera. Tap to go back to the bearing ruler.'
+      : 'Bearing ruler. Tap to see the front camera.';
+
+  @override
+  String get cameraOpening => 'Opening the camera…';
+
+  @override
+  String get cameraDenied => 'No camera permission';
+
+  @override
+  String get cameraDeniedHint =>
+      'Grant CompassTorch camera permission in the phone settings to use the '
+      'screen as a mirror.';
+
+  @override
+  String get cameraUnavailable => 'Camera unavailable';
+
+  @override
+  String get cameraUnavailableHint =>
+      'This device has no usable front camera, or another app is using it.';
+
+  @override
   String torchState({required bool on, int? percent}) {
     if (!on) return 'Torch off';
     return percent == null ? 'Torch on' : 'Torch on at $percent percent';
