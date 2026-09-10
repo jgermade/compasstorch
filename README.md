@@ -39,7 +39,7 @@ La pantalla se divide en dos mitades:
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
   superficie de plástico rugoso con un círculo translúcido que hace de marca.
-  Dos líneas blancas cruzan el control de lado a lado, fijas al marco, y
+  Dos líneas translúcidas cruzan el control de lado a lado, fijas al marco, y
   delimitan un cuadro de reposo en la esquina inferior derecha donde la marca
   descansa. Un icono en cada cuadrante recuerda qué hace cada eje: la linterna
   arriba a la derecha y el modo faro abajo a la izquierda.

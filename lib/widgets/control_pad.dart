@@ -478,12 +478,13 @@ class _PadPainter extends CustomPainter {
     final lineY = PadGeometry.line * side;
 
     // Blancas sobre el plástico oscuro, y oscuras cuando el modo faro aclara
-    // el fondo, o desaparecerían.
+    // el fondo, o desaparecerían. Van translúcidas: marcan el límite sin
+    // partir el mando en cuatro cuadros.
     final line = Paint()
       ..strokeWidth = 1.8
       ..color = scheme.brightness == Brightness.dark
-          ? Colors.white.withValues(alpha: 0.85)
-          : Colors.black.withValues(alpha: 0.45);
+          ? Colors.white.withValues(alpha: 0.55)
+          : Colors.black.withValues(alpha: 0.3);
     canvas.drawLine(Offset(0, lineY), Offset(size.width, lineY), line);
     canvas.drawLine(Offset(lineX, 0), Offset(lineX, size.height), line);
   }
