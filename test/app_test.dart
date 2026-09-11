@@ -122,7 +122,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final beacon = tester.getCenter(find.byKey(const ValueKey('beaconChip')));
-      final view = tester.getCenter(find.byIcon(Icons.explore_rounded));
+      final view = tester.getCenter(find.byKey(const ValueKey('viewToggle')));
       final torch = tester.getCenter(find.byKey(const ValueKey('torchChip')));
       final width = tester.getSize(find.byType(MaterialApp)).width;
 
@@ -190,7 +190,32 @@ void main() {
       );
     });
 
-    testWidgets('tumbado no hay botón de vista y la cámara se suelta', (
+    testWidgets('tumbado, el botón de la barra alterna brújula y cámara', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      orientation.emit(tilt: 5, heading: 42);
+      await tester.pumpAndSettle();
+
+      // Se entra por la brújula, y el botón anuncia que hay cámara detrás.
+      expect(find.byType(CompassDial), findsOneWidget);
+      expect(find.byIcon(Icons.explore_rounded), findsOneWidget);
+      expect(camera.starts, 0);
+
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelfieView), findsOneWidget);
+      expect(find.byType(CompassDial), findsNothing);
+      expect(camera.starts, 1);
+      expect(find.byKey(const ValueKey('fakePreview')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+      expect(find.byType(CompassDial), findsOneWidget);
+      expect(camera.status, SelfieCameraStatus.off);
+    });
+
+    testWidgets('el espejo se queda puesto al cambiar de postura', (
       tester,
     ) async {
       await pumpApp(tester);
@@ -203,16 +228,70 @@ void main() {
       orientation.emit(tilt: 5);
       await tester.pumpAndSettle();
 
+      // Tumbar el teléfono ya no saca del espejo, y la cámara sigue abierta:
+      // es la misma vista, no se reabre.
+      expect(find.byType(SelfieView), findsOneWidget);
+      expect(find.byType(CompassDial), findsNothing);
+      expect(camera.status, SelfieCameraStatus.ready);
+      expect(camera.starts, 1);
+      expect(camera.stops, 0);
+      // Lo que cambia es a dónde lleva el botón: ahora a la brújula.
+      expect(find.byIcon(Icons.explore_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.straighten_rounded), findsNothing);
+
+      // Y al salir del espejo, con el teléfono tumbado, sale la brújula.
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
       expect(find.byType(CompassDial), findsOneWidget);
       expect(camera.status, SelfieCameraStatus.off);
-      // Con el teléfono tumbado no hay nada que elegir: solo el icono.
-      expect(find.byKey(const ValueKey('viewToggle')), findsNothing);
-      expect(find.byIcon(Icons.explore_rounded), findsOneWidget);
+    });
 
-      // Y al volver a levantarlo se entra otra vez por la regla.
+    testWidgets('el botón de la imagen alterna las dos cámaras', (
+      tester,
+    ) async {
+      await pumpApp(tester);
       orientation.emit(tilt: 80);
       await tester.pumpAndSettle();
-      expect(find.byType(HeadingRibbon), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+
+      // Va superpuesto a la imagen, abajo a la derecha del cuadro.
+      final mirror = tester.getRect(
+        find.descendant(
+          of: find.byType(SelfieView),
+          matching: find.byType(ClipRRect),
+        ),
+      );
+      final button = tester.getRect(find.byKey(const ValueKey('lensToggle')));
+      expect(button.center.dx, greaterThan(mirror.center.dx));
+      expect(button.center.dy, greaterThan(mirror.center.dy));
+      expect(button.right, lessThanOrEqualTo(mirror.right));
+      expect(button.bottom, lessThanOrEqualTo(mirror.bottom));
+
+      expect(camera.lens, SelfieCameraLens.front);
+      await tester.tap(find.byKey(const ValueKey('lensToggle')));
+      await tester.pumpAndSettle();
+      expect(camera.lens, SelfieCameraLens.back);
+      expect(camera.switches, 1);
+
+      // Y vuelve a la frontal: el mismo botón hace los dos viajes.
+      await tester.tap(find.byKey(const ValueKey('lensToggle')));
+      await tester.pumpAndSettle();
+      expect(camera.lens, SelfieCameraLens.front);
+    });
+
+    testWidgets('con una sola cámara no aparece el botón de alternar', (
+      tester,
+    ) async {
+      camera.bothLenses = false;
+      await pumpApp(tester);
+      orientation.emit(tilt: 80);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('fakePreview')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lensToggle')), findsNothing);
     });
 
     testWidgets('sin permiso de cámara se explica en la propia vista', (
