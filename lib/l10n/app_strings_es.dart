@@ -17,18 +17,25 @@ class AppStringsEs extends AppStrings {
   ];
 
   @override
-  String get compassView => 'En horizontal: brújula';
+  String selfieView({required bool front}) =>
+      front ? 'Espejo: cámara frontal' : 'Espejo: cámara principal';
 
   @override
-  String get bearingRulerView => 'En vertical: regla de rumbos';
+  String viewToggle({required bool selfie, required bool flat}) {
+    if (selfie) {
+      return flat
+          ? 'Espejo. Tocar para volver a la brújula.'
+          : 'Espejo. Tocar para volver a la regla de rumbos.';
+    }
+    return flat
+        ? 'Brújula. Tocar para ver el espejo.'
+        : 'Regla de rumbos. Tocar para ver el espejo.';
+  }
 
   @override
-  String get selfieView => 'En vertical: cámara frontal';
-
-  @override
-  String viewToggle({required bool selfie}) => selfie
-      ? 'Cámara frontal. Tocar para volver a la regla de rumbos.'
-      : 'Regla de rumbos. Tocar para ver la cámara frontal.';
+  String cameraSwitch({required bool front}) => front
+      ? 'Cámara frontal. Tocar para ver la cámara principal.'
+      : 'Cámara principal. Tocar para ver la cámara frontal.';
 
   @override
   String get cameraOpening => 'Abriendo la cámara…';
@@ -46,7 +53,7 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get cameraUnavailableHint =>
-      'Este dispositivo no tiene cámara frontal utilizable, o la está usando '
+      'Este dispositivo no tiene ninguna cámara utilizable, o la está usando '
       'otra aplicación.';
 
   @override

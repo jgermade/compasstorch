@@ -18,18 +18,25 @@ class AppStringsEn extends AppStrings {
   ];
 
   @override
-  String get compassView => 'Lying flat: compass';
+  String selfieView({required bool front}) =>
+      front ? 'Mirror: front camera' : 'Mirror: main camera';
 
   @override
-  String get bearingRulerView => 'Held upright: bearing ruler';
+  String viewToggle({required bool selfie, required bool flat}) {
+    if (selfie) {
+      return flat
+          ? 'Mirror. Tap to go back to the compass.'
+          : 'Mirror. Tap to go back to the bearing ruler.';
+    }
+    return flat
+        ? 'Compass. Tap to see the mirror.'
+        : 'Bearing ruler. Tap to see the mirror.';
+  }
 
   @override
-  String get selfieView => 'Held upright: front camera';
-
-  @override
-  String viewToggle({required bool selfie}) => selfie
-      ? 'Front camera. Tap to go back to the bearing ruler.'
-      : 'Bearing ruler. Tap to see the front camera.';
+  String cameraSwitch({required bool front}) => front
+      ? 'Front camera. Tap to see the main camera.'
+      : 'Main camera. Tap to see the front camera.';
 
   @override
   String get cameraOpening => 'Opening the camera…';
@@ -47,7 +54,7 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get cameraUnavailableHint =>
-      'This device has no usable front camera, or another app is using it.';
+      'This device has no usable camera, or another app is using it.';
 
   @override
   String torchState({required bool on, int? percent}) {

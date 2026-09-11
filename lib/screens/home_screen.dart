@@ -34,8 +34,8 @@ class HomeScreen extends StatefulWidget {
   final ControlsController controller;
   final OrientationService orientation;
 
-  /// Cámara frontal de la vista de espejo, que se alterna con la regla de
-  /// rumbos cuando el teléfono está levantado.
+  /// Cámara de la vista de espejo, que se alterna con la brújula desde el
+  /// botón de la barra de arriba, se sujete como se sujete el teléfono.
   final SelfieCamera camera;
 
   @override
@@ -51,9 +51,9 @@ const _viewInsets = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
 class _HomeScreenState extends State<HomeScreen> {
   DevicePose _pose = DevicePose.flat;
 
-  /// En vertical se está viendo la cámara frontal en vez de la regla de
-  /// rumbos. Con el teléfono tumbado no pinta nada, así que se vuelve sola a
-  /// la regla al bajar el teléfono.
+  /// Se está viendo el espejo en vez de la brújula. Vale para las dos
+  /// posturas: tumbado sustituye a la rosa y levantado a la regla de rumbos,
+  /// así que bajar o subir el teléfono no saca del espejo.
   bool _selfie = false;
 
   @override
@@ -99,10 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
             if (reading != null) {
               _pose = poseFor(reading.tilt, _pose);
             }
-            // La cámara es cosa del modo vertical: al tumbar el teléfono se
-            // vuelve a la regla, y con ella la cámara se suelta.
-            if (_pose == DevicePose.flat) _selfie = false;
-
             // El margen de abajo va fuera de la columna a propósito: así los
             // dos huecos de dentro llevan exactamente el mismo relleno y
             // miden lo mismo, que es lo que hace que el espejo y el mando
@@ -124,8 +120,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         duration: const Duration(milliseconds: 320),
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
+                        // El espejo lleva la misma clave en las dos posturas:
+                        // así, al subir o bajar el teléfono sin salir de él,
+                        // la vista se queda como está y la cámara no se
+                        // vuelve a abrir.
                         child: switch ((_pose, _selfie)) {
-                          (DevicePose.flat, _) => CompassDial(
+                          (_, true) => SelfieView(
+                            key: const ValueKey('selfie'),
+                            camera: widget.camera,
+                          ),
+                          (DevicePose.flat, false) => CompassDial(
                             key: const ValueKey('dial'),
                             heading: reading?.headingTop,
                             levelX: reading?.levelX ?? 0,
@@ -136,10 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             key: const ValueKey('ribbon'),
                             heading: reading?.headingCamera,
                             elevation: reading?.elevation ?? 0,
-                          ),
-                          (DevicePose.upright, true) => SelfieView(
-                            key: const ValueKey('selfie'),
-                            camera: widget.camera,
                           ),
                         },
                       ),
@@ -181,9 +181,9 @@ class _HomeScreenState extends State<HomeScreen> {
 /// medio, la vista que está activa.
 ///
 /// Los dos chips no solo informan: tocarlos enciende o apaga su control, y el
-/// mando de abajo se coloca solo donde corresponda. En medio, con el teléfono
-/// tumbado solo se ve el icono de la brújula, porque no hay nada que elegir;
-/// levantado se convierte en un botón que alterna la regla y la cámara.
+/// mando de abajo se coloca solo donde corresponda. En medio va el botón que
+/// alterna el espejo con la vista de brújula que toque: la rosa con el
+/// teléfono tumbado, la regla de rumbos con el teléfono levantado.
 class _StatusBar extends StatelessWidget {
   const _StatusBar({
     required this.controller,
@@ -195,10 +195,10 @@ class _StatusBar extends StatelessWidget {
   final ControlsController controller;
   final DevicePose pose;
 
-  /// En vertical se está viendo la cámara frontal en vez de la regla.
+  /// Se está viendo el espejo en vez de la vista de brújula.
   final bool selfie;
 
-  /// Cambia entre las dos vistas del modo vertical.
+  /// Cambia entre el espejo y la vista de brújula.
   final VoidCallback onToggleView;
 
   @override
@@ -234,17 +234,7 @@ class _StatusBar extends StatelessWidget {
                   ),
                 ),
               ),
-              if (flat)
-                Semantics(
-                  label: strings.compassView,
-                  child: Icon(
-                    Icons.explore_rounded,
-                    size: 18,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                  ),
-                )
-              else
-                _ViewToggle(selfie: selfie, onTap: onToggleView),
+              _ViewToggle(selfie: selfie, flat: flat, onTap: onToggleView),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -275,14 +265,23 @@ class _StatusBar extends StatelessWidget {
   }
 }
 
-/// Botón de las dos vistas del modo vertical: la regla de rumbos y la cámara
-/// frontal. Los dos iconos se ven siempre, y el de la vista activa es el que
-/// va encendido, para que se lea de un vistazo qué se está viendo y qué hay
-/// al otro lado.
+/// Botón de las dos vistas: el espejo y la brújula. Los dos iconos se ven
+/// siempre, y el de la vista activa es el que va encendido, para que se lea de
+/// un vistazo qué se está viendo y qué hay al otro lado. El icono de la
+/// brújula es el que corresponde a la postura: la rosa con el teléfono
+/// tumbado, la regla de rumbos con el teléfono levantado.
 class _ViewToggle extends StatelessWidget {
-  const _ViewToggle({required this.selfie, required this.onTap});
+  const _ViewToggle({
+    required this.selfie,
+    required this.flat,
+    required this.onTap,
+  });
 
   final bool selfie;
+
+  /// El teléfono está tumbado, así que la otra vista es la rosa.
+  final bool flat;
+
   final VoidCallback onTap;
 
   @override
@@ -291,7 +290,7 @@ class _ViewToggle extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Semantics(
-      label: strings.viewToggle(selfie: selfie),
+      label: strings.viewToggle(selfie: selfie, flat: flat),
       button: true,
       child: InkWell(
         key: const ValueKey('viewToggle'),
@@ -309,7 +308,10 @@ class _ViewToggle extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ViewToggleIcon(icon: Icons.straighten_rounded, active: !selfie),
+              _ViewToggleIcon(
+                icon: flat ? Icons.explore_rounded : Icons.straighten_rounded,
+                active: !selfie,
+              ),
               const SizedBox(width: 8),
               _ViewToggleIcon(
                 icon: Icons.photo_camera_front_rounded,

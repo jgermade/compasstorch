@@ -17,8 +17,10 @@ La pantalla se divide en dos mitades:
   - **En vertical** (levantado, apuntando a algo): una regla de líneas
     verticales que se desplaza con el rumbo al que apunta la parte trasera del
     teléfono, con los grados marcados, y a su derecha una barra vertical con la
-    **elevación sobre el horizonte**. En vertical hay además una segunda vista,
-    el **espejo**: la imagen de la cámara frontal ocupando el mismo hueco.
+    **elevación sobre el horizonte**.
+
+  En las dos posturas hay además una segunda vista, el **espejo**: la imagen
+  de la cámara ocupando el mismo hueco.
 
   El cambio lo decide la inclinación del plano del teléfono (`tilt`), con una
   banda muerta entre 35° y 55° para que la vista no oscile en el límite.
@@ -31,11 +33,12 @@ La pantalla se divide en dos mitades:
   la luz de golpe; graduar es cosa del mando, que se coloca solo donde
   corresponda.
 
-  En medio de esos dos chips va la vista activa. Con el teléfono tumbado es
-  solo el icono de la brújula, porque no hay nada que elegir. Levantado se
-  convierte en un **botón con dos iconos**, la regla y la cámara: el de la
+  En medio de esos dos chips va la vista activa, en un **botón con dos
+  iconos**: la brújula y la cámara. El icono de la brújula es el que
+  corresponde a la postura —la rosa tumbado, la regla levantado—, el de la
   vista que se está viendo va encendido y el otro tenue, y tocarlo cambia entre
-  las dos. Al bajar el teléfono se vuelve siempre a la regla.
+  las dos. Subir o bajar el teléfono no saca del espejo: cambia la vista que
+  hay al otro lado del botón.
 
 - **Abajo, el mando.** No se desliza un pulsador: se desplaza **el fondo**, una
   superficie de plástico rugoso con un círculo translúcido que hace de marca.
@@ -82,19 +85,31 @@ faro mantiene la pantalla encendida de todas formas, la haya quitado o no.
 
 ## El espejo
 
-Con el teléfono levantado, el botón del medio de la barra cambia la regla de
-rumbos por la imagen de la cámara frontal. Es lo que le faltaba a una linterna
-para alumbrarse a uno mismo: luz y espejo a la vez, sin salir de la aplicación.
+El botón del medio de la barra cambia la brújula por la imagen de la cámara.
+Funciona **en las dos posturas**: tumbado sustituye a la rosa de los vientos y
+levantado a la regla de rumbos. Es lo que le faltaba a una linterna para
+alumbrarse a uno mismo: luz y espejo a la vez, sin salir de la aplicación.
 
-La cámara se abre al entrar en la vista y **se suelta al salir**, al bajar el
-teléfono y al irse la aplicación a segundo plano, así que fuera del espejo
-queda libre para otras aplicaciones y no gasta batería. La imagen llega ya
-invertida como un espejo: tanto CameraX en Android como AVFoundation en iOS
-reflejan la vista previa de la cámara frontal, así que la aplicación no le da
-la vuelta por su cuenta.
+Superpuesto a la imagen, **abajo a la derecha**, un botón redondo alterna entre
+la **cámara frontal** y la **principal**: el espejo sirve así también para
+mirar lo que hay al otro lado del teléfono. Solo aparece si el dispositivo
+tiene las dos cámaras, y se queda puesto mientras la otra se abre, para no
+desaparecer justo al tocarlo. La cámara elegida se mantiene mientras dure la
+sesión.
+
+La cámara se abre al entrar en la vista y **se suelta al salir** y al irse la
+aplicación a segundo plano, así que fuera del espejo queda libre para otras
+aplicaciones y no gasta batería. Cambiar de postura no la reabre: es la misma
+vista. Al alternar de cámara se suelta la anterior antes de abrir la otra,
+porque hay dispositivos que no dejan tener las dos abiertas a la vez.
+
+La imagen de la cámara frontal llega ya invertida como un espejo: tanto CameraX
+en Android como AVFoundation en iOS reflejan su vista previa, así que la
+aplicación no le da la vuelta por su cuenta. La principal no se invierte, que
+es lo que se espera al mirar hacia delante.
 
 El **permiso de cámara** se pide la primera vez que se toca el botón. Si no se
-da, o si el dispositivo no tiene cámara frontal utilizable, la vista lo explica
+da, o si el dispositivo no tiene ninguna cámara utilizable, la vista lo explica
 en su sitio y el resto de la aplicación sigue igual: el espejo es lo único que
 depende de la cámara.
 
@@ -211,7 +226,7 @@ se desvía cerca de metales o imanes.
 | `sensors_plus` | Acelerómetro y magnetómetro (rumbo e inclinación) |
 | `screen_brightness` | Brillo de la pantalla, solo dentro de la aplicación |
 | `wakelock_plus` | Impedir que la pantalla se apague |
-| `camera` | Vista previa de la cámara frontal (el espejo) |
+| `camera` | Vista previa de la cámara, frontal o principal (el espejo) |
 
 La linterna va por canal propio, sin dependencia externa.
 
@@ -225,9 +240,12 @@ tampoco necesita `WRITE_SETTINGS`. En iOS los sensores de movimiento no piden
 permiso, pero se declara `NSMotionUsageDescription`, y el espejo añade
 `NSCameraUsageDescription`.
 
-Queda **sin comprobar en hardware** si la linterna y el espejo conviven: el
-flash va por la cámara trasera y el espejo por la frontal, pero hay
-dispositivos que no dejan las dos cosas a la vez.
+Queda **sin comprobar en hardware** si la linterna y el espejo conviven. Con la
+cámara frontal deberían: el flash va por la trasera, aunque hay dispositivos
+que no dejan las dos cosas a la vez. Con el espejo puesto en la **cámara
+principal** el choque es directo —es la cámara del flash—, así que lo esperable
+es que abrirla apague la linterna sin que la aplicación se entere, y que su
+chip se quede diciendo que está encendida hasta que se toque.
 
 ## Compilación y publicación
 
@@ -296,9 +314,10 @@ soltarla), los gestos sobre el mando, la lógica de los controles —jerarquía 
 vibraciones, gradación, suelo de brillo y coalescencia de envíos— con un doble
 de `DeviceServices`, sin tocar los canales de plataforma, el aviso háptico del
 nivel (que no se repite ni se dispara solo al arrancar), el botón que alterna
-la regla y el espejo —con un doble de `SelfieCamera`, que comprueba también que
-la cámara se suelta al salir de la vista— y las traducciones, incluida la
-vuelta al inglés con un idioma sin traducir.
+la brújula y el espejo en las dos posturas y el que alterna las dos cámaras
+—con un doble de `SelfieCamera`, que comprueba también que la cámara se suelta
+al salir de la vista y que no se reabre al cambiar de postura— y las
+traducciones, incluida la vuelta al inglés con un idioma sin traducir.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
 una función pura, comprobable sin simular gestos.

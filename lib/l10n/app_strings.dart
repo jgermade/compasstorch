@@ -34,19 +34,21 @@ abstract class AppStrings {
     return cardinals[((normalized + 22.5) ~/ 45) % 8];
   }
 
-  /// Nombre de cada vista, solo para lectores de pantalla: en la barra
-  /// superior se ve el icono, sin texto.
-  String get compassView;
-  String get bearingRulerView;
-  String get selfieView;
+  /// Nombre de la vista de espejo, solo para lectores de pantalla, con la
+  /// cámara que se está viendo.
+  String selfieView({required bool front});
 
-  /// Botón que cambia entre la regla de rumbos y la cámara frontal. Dice qué
-  /// se está viendo y qué pasa al tocarlo, porque en la pantalla solo se ven
-  /// los dos iconos.
-  String viewToggle({required bool selfie});
+  /// Botón que cambia entre el espejo y la vista de brújula que toque según
+  /// cómo se sujete el teléfono: la rosa tumbado, la regla de rumbos
+  /// levantado. Dice qué se está viendo y qué pasa al tocarlo, porque en la
+  /// pantalla solo se ven los dos iconos.
+  String viewToggle({required bool selfie, required bool flat});
 
-  /// Estado de la cámara frontal mientras no se ve la imagen: se está
-  /// abriendo, falta el permiso o no hay cámara utilizable.
+  /// Botón de encima de la imagen que alterna entre las dos cámaras.
+  String cameraSwitch({required bool front});
+
+  /// Estado de la cámara mientras no se ve la imagen: se está abriendo, falta
+  /// el permiso o no hay cámara utilizable.
   String get cameraOpening;
   String get cameraDenied;
   String get cameraDeniedHint;

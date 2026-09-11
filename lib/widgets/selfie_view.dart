@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import '../l10n/app_strings.dart';
 import '../services/selfie_camera.dart';
 
-/// Espejo: la imagen de la cámara frontal, en el hueco de la brújula.
+/// Espejo: la imagen de la cámara, en el hueco de la brújula.
 ///
-/// Es la otra vista del modo vertical, la que se alterna con la regla de
-/// rumbos desde el botón de la barra de arriba. Abre la cámara al aparecer y
-/// la suelta al desaparecer, así que fuera de esta vista la cámara queda libre
-/// para otras aplicaciones.
+/// Se alterna con la brújula o con la regla de rumbos —según cómo se sujete el
+/// teléfono— desde el botón de la barra de arriba. Abre la cámara al aparecer
+/// y la suelta al desaparecer, así que fuera de esta vista la cámara queda
+/// libre para otras aplicaciones.
 class SelfieView extends StatefulWidget {
   const SelfieView({super.key, required this.camera});
 
@@ -52,15 +52,21 @@ class _SelfieViewState extends State<SelfieView> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
-    final preview = widget.camera.status == SelfieCameraStatus.ready
+    final status = widget.camera.status;
+    final front = widget.camera.lens == SelfieCameraLens.front;
+    final preview = status == SelfieCameraStatus.ready
         ? widget.camera.buildPreview(context)
         : null;
-
-    if (preview == null) return _CameraMessage(status: widget.camera.status);
+    // El botón de cambiar de cámara solo aparece si hay a dónde ir, y sigue
+    // puesto mientras la otra se abre: si no, desaparecería justo al tocarlo.
+    final canSwitch =
+        widget.camera.canSwitchLens &&
+        (status == SelfieCameraStatus.ready ||
+            status == SelfieCameraStatus.opening);
 
     return Semantics(
-      label: strings.selfieView,
-      image: true,
+      label: strings.selfieView(front: front),
+      image: preview != null,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // El mismo cuadrado que el mando: los dos huecos miden igual y la
@@ -74,21 +80,84 @@ class _SelfieViewState extends State<SelfieView> {
               child: SizedBox(
                 width: side,
                 height: side,
-                // La imagen viene con la proporción de la cámara, más
-                // estrecha que el cuadrado: se agranda hasta llenarlo de lado a
-                // lado y lo que sobra por arriba y por abajo se recorta, en vez
-                // de dejar dos franjas vacías a los lados.
-                child: OverflowBox(
-                  minWidth: side,
-                  maxWidth: side,
-                  minHeight: 0,
-                  maxHeight: double.infinity,
-                  child: preview,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (preview == null)
+                      _CameraMessage(status: status)
+                    else
+                      // La imagen viene con la proporción de la cámara, más
+                      // estrecha que el cuadrado: se agranda hasta llenarlo de
+                      // lado a lado y lo que sobra por arriba y por abajo se
+                      // recorta, en vez de dejar dos franjas vacías a los
+                      // lados.
+                      OverflowBox(
+                        minWidth: side,
+                        maxWidth: side,
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        child: preview,
+                      ),
+                    if (canSwitch)
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: _LensButton(
+                          front: front,
+                          onTap: widget.camera.switchLens,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Botón redondo sobre la imagen, abajo a la derecha: alterna entre la cámara
+/// frontal y la principal.
+///
+/// Va encima de la imagen, que puede ser de cualquier color: de ahí el disco
+/// oscuro translúcido y el borde claro, para que se vea sobre lo que sea.
+class _LensButton extends StatelessWidget {
+  const _LensButton({required this.front, required this.onTap});
+
+  /// Se está viendo la cámara frontal; tocar lleva a la principal.
+  final bool front;
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+
+    return Semantics(
+      label: strings.cameraSwitch(front: front),
+      button: true,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.45),
+        shape: CircleBorder(
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const ValueKey('lensToggle'),
+          onTap: onTap,
+          child: const Padding(
+            // Área de toque cómoda sin comerse la imagen: el icono es pequeño
+            // y el disco queda de unos 44 puntos.
+            padding: EdgeInsets.all(12),
+            child: Icon(
+              Icons.cameraswitch_rounded,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -123,7 +192,7 @@ class _CameraMessage extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
