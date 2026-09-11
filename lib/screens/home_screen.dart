@@ -42,6 +42,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// Relleno de cada una de las dos mitades. Es el mismo para las dos para que
+/// los dos huecos midan igual: el mando y el espejo son cuadrados del lado
+/// corto de su hueco, así que solo salen del mismo ancho si el hueco es el
+/// mismo.
+const _viewInsets = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
+
 class _HomeScreenState extends State<HomeScreen> {
   DevicePose _pose = DevicePose.flat;
 
@@ -97,65 +103,72 @@ class _HomeScreenState extends State<HomeScreen> {
             // vuelve a la regla, y con ella la cámara se suelta.
             if (_pose == DevicePose.flat) _selfie = false;
 
-            return Column(
-              children: [
-                _StatusBar(
-                  controller: widget.controller,
-                  pose: _pose,
-                  selfie: _selfie,
-                  onToggleView: () => setState(() => _selfie = !_selfie),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      child: switch ((_pose, _selfie)) {
-                        (DevicePose.flat, _) => CompassDial(
-                          key: const ValueKey('dial'),
-                          heading: reading?.headingTop,
-                          levelX: reading?.levelX ?? 0,
-                          levelY: reading?.levelY ?? 0,
-                          onLevelled: widget.controller.pulseLevelled,
-                        ),
-                        (DevicePose.upright, false) => HeadingRibbon(
-                          key: const ValueKey('ribbon'),
-                          heading: reading?.headingCamera,
-                          elevation: reading?.elevation ?? 0,
-                        ),
-                        (DevicePose.upright, true) => SelfieView(
-                          key: const ValueKey('selfie'),
-                          camera: widget.camera,
-                        ),
-                      },
-                    ),
+            // El margen de abajo va fuera de la columna a propósito: así los
+            // dos huecos de dentro llevan exactamente el mismo relleno y
+            // miden lo mismo, que es lo que hace que el espejo y el mando
+            // salgan del mismo ancho.
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                children: [
+                  _StatusBar(
+                    controller: widget.controller,
+                    pose: _pose,
+                    selfie: _selfie,
+                    onToggleView: () => setState(() => _selfie = !_selfie),
                   ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: AnimatedBuilder(
-                      animation: widget.controller,
-                      builder: (context, child) => ControlPad(
-                        torchOn: widget.controller.torchOn,
-                        beaconOn: widget.controller.beaconOn,
-                        torchIntensity: widget.controller.torchIntensity,
-                        beaconLevel: widget.controller.beaconLevel,
-                        torchIsGradual: widget.controller.torchIsGradual,
-                        keepAwake: widget.controller.keepAwake,
-                        onTorchChanged: (enabled, level) => widget.controller
-                            .setTorch(enabled: enabled, intensity: level),
-                        onBeaconChanged: (enabled, level) => widget.controller
-                            .setBeacon(enabled: enabled, level: level),
-                        onZoneChanged: widget.controller.pulseZoneChange,
-                        onToggleKeepAwake: widget.controller.toggleKeepAwake,
+                  Expanded(
+                    child: Padding(
+                      padding: _viewInsets,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: switch ((_pose, _selfie)) {
+                          (DevicePose.flat, _) => CompassDial(
+                            key: const ValueKey('dial'),
+                            heading: reading?.headingTop,
+                            levelX: reading?.levelX ?? 0,
+                            levelY: reading?.levelY ?? 0,
+                            onLevelled: widget.controller.pulseLevelled,
+                          ),
+                          (DevicePose.upright, false) => HeadingRibbon(
+                            key: const ValueKey('ribbon'),
+                            heading: reading?.headingCamera,
+                            elevation: reading?.elevation ?? 0,
+                          ),
+                          (DevicePose.upright, true) => SelfieView(
+                            key: const ValueKey('selfie'),
+                            camera: widget.camera,
+                          ),
+                        },
                       ),
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Padding(
+                      padding: _viewInsets,
+                      child: AnimatedBuilder(
+                        animation: widget.controller,
+                        builder: (context, child) => ControlPad(
+                          torchOn: widget.controller.torchOn,
+                          beaconOn: widget.controller.beaconOn,
+                          torchIntensity: widget.controller.torchIntensity,
+                          beaconLevel: widget.controller.beaconLevel,
+                          torchIsGradual: widget.controller.torchIsGradual,
+                          keepAwake: widget.controller.keepAwake,
+                          onTorchChanged: (enabled, level) => widget.controller
+                              .setTorch(enabled: enabled, intensity: level),
+                          onBeaconChanged: (enabled, level) => widget.controller
+                              .setBeacon(enabled: enabled, level: level),
+                          onZoneChanged: widget.controller.pulseZoneChange,
+                          onToggleKeepAwake: widget.controller.toggleKeepAwake,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),

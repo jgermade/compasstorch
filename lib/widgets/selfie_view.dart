@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
@@ -59,11 +61,34 @@ class _SelfieViewState extends State<SelfieView> {
     return Semantics(
       label: strings.selfieView,
       image: true,
-      child: Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: preview,
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // El mismo cuadrado que el mando: los dos huecos miden igual y la
+          // regla es la misma, así que el espejo queda alineado con el mando
+          // por los dos lados.
+          final side = math.min(constraints.maxWidth, constraints.maxHeight);
+
+          return Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                width: side,
+                height: side,
+                // La imagen viene con la proporción de la cámara, más
+                // estrecha que el cuadrado: se agranda hasta llenarlo de lado a
+                // lado y lo que sobra por arriba y por abajo se recorta, en vez
+                // de dejar dos franjas vacías a los lados.
+                child: OverflowBox(
+                  minWidth: side,
+                  maxWidth: side,
+                  minHeight: 0,
+                  maxHeight: double.infinity,
+                  child: preview,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
