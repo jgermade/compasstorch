@@ -164,6 +164,32 @@ void main() {
       expect(camera.status, SelfieCameraStatus.off);
     });
 
+    testWidgets('el espejo sale del mismo ancho que el mando', (tester) async {
+      await pumpApp(tester);
+      orientation.emit(tilt: 80);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+
+      final mirror = tester.getRect(
+        find.descendant(
+          of: find.byType(SelfieView),
+          matching: find.byType(ClipRRect),
+        ),
+      );
+      final pad = padRect(tester);
+      // Los dos cuadros, uno encima del otro y con los mismos lados.
+      expect(mirror.left, pad.left);
+      expect(mirror.right, pad.right);
+      expect(mirror.width, pad.width);
+      // Y la imagen llena el cuadro de lado a lado: lo que sobra se recorta,
+      // en vez de dejar franjas vacías.
+      expect(
+        tester.getSize(find.byKey(const ValueKey('fakePreview'))).width,
+        mirror.width,
+      );
+    });
+
     testWidgets('tumbado no hay botón de vista y la cámara se suelta', (
       tester,
     ) async {

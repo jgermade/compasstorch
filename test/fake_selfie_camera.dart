@@ -32,7 +32,12 @@ class FakeSelfieCamera extends ChangeNotifier implements SelfieCamera {
   @override
   Widget? buildPreview(BuildContext context) {
     if (_status != SelfieCameraStatus.ready) return null;
-    return const SizedBox.expand(key: ValueKey('fakePreview'));
+    // Como la de verdad: la imagen llega con la proporción de la cámara, más
+    // estrecha que alta, y es la vista la que decide cómo encajarla.
+    return const AspectRatio(
+      aspectRatio: 3 / 4,
+      child: SizedBox.expand(key: ValueKey('fakePreview')),
+    );
   }
 
   void _moveTo(SelfieCameraStatus status) {
