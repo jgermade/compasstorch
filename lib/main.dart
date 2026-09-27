@@ -47,6 +47,7 @@ class CompassTorchApp extends StatefulWidget {
 class _CompassTorchAppState extends State<CompassTorchApp> {
   late final ControlsController _controller = ControlsController(
     widget.services,
+    camera: widget.camera,
   );
   late final AppLifecycleListener _lifecycle;
 

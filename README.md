@@ -103,6 +103,22 @@ aplicaciones y no gasta batería. Cambiar de postura no la reabre: es la misma
 vista. Al alternar de cámara se suelta la anterior antes de abrir la otra,
 porque hay dispositivos que no dejan tener las dos abiertas a la vez.
 
+La **linterna sigue funcionando con la cámara principal en el espejo**, aunque
+es la cámara del flash. En Android, mientras una cámara está abierta el sistema
+apaga su linterna y no deja tocarla desde fuera (`setTorchMode` falla con
+`CAMERA_IN_USE`), así que durante ese rato el flash se maneja a través de la
+propia cámara abierta, con `setFlashMode(FlashMode.torch)` del plugin. Ese
+camino solo sabe encender y apagar: con la principal en el espejo la linterna
+va siempre al 100 %, aunque el mando marque menos. Al abrir la principal con
+la linterna encendida se vuelve a encender por la cámara, y al soltarla —salir
+del espejo, pasar a la frontal o irse a segundo plano— vuelve al canal propio
+con el nivel que tuviera. En iOS el canal propio debería funcionar también con
+la cámara abierta —la linterna es del mismo `AVCaptureDevice` que usa el
+plugin—, así que ahí no se desvía y la gradación se mantiene; solo se vuelve a
+aplicar al abrirla y al soltarla, por si el sistema la ha apagado entre medias.
+Todo esto sale del código de los plugins y de la documentación de cada
+plataforma: **falta comprobarlo en un teléfono**.
+
 La imagen de la cámara frontal llega ya invertida como un espejo: tanto CameraX
 en Android como AVFoundation en iOS reflejan su vista previa, así que la
 aplicación no le da la vuelta por su cuenta. La principal no se invierte, que
@@ -189,6 +205,15 @@ dos métodos:
 - `setTorch(enabled, intensity)` — la intensidad va de 0 a 1 y cada lado la
   traduce a su escala; se ignora donde no se puede regular
 
+En Android el lado nativo **se queda con lo último que se le pide**, aunque no
+lo pueda aplicar porque la cámara del flash está abierta, y un
+`CameraManager.TorchCallback` lo aplica en cuanto la cámara se suelta. Hace
+falta porque CameraX cierra la cámara en segundo plano: cuando Dart termina de
+soltarla, puede que el flash todavía no esté libre. Por lo mismo, si un
+encendido falla del todo, Dart le devuelve el estado anterior, para que no lo
+aplique más tarde por su cuenta. Los cambios hechos con la cámara libre, desde
+la aplicación o desde los ajustes rápidos, pasan a ser lo pedido.
+
 Está implementado en
 [`TorchController.kt`](android/app/src/main/kotlin/com/jgermade/compasstorch/TorchController.kt)
 y en [`AppDelegate.swift`](ios/Runner/AppDelegate.swift). El código de iOS vive
@@ -240,12 +265,12 @@ tampoco necesita `WRITE_SETTINGS`. En iOS los sensores de movimiento no piden
 permiso, pero se declara `NSMotionUsageDescription`, y el espejo añade
 `NSCameraUsageDescription`.
 
-Queda **sin comprobar en hardware** si la linterna y el espejo conviven. Con la
-cámara frontal deberían: el flash va por la trasera, aunque hay dispositivos
-que no dejan las dos cosas a la vez. Con el espejo puesto en la **cámara
-principal** el choque es directo —es la cámara del flash—, así que lo esperable
-es que abrirla apague la linterna sin que la aplicación se entere, y que su
-chip se quede diciendo que está encendida hasta que se toque.
+Con el espejo en la **cámara principal** la linterna pasa por la propia cámara
+(ver [El espejo](#el-espejo)). Con la frontal sigue yendo por el canal propio,
+porque el flash es de la trasera; hay dispositivos que no dejan las dos cosas a
+la vez, y en esos encender la linterna con la frontal abierta falla y avisa
+como cuando no hay flash. Si al soltar la frontal el flash queda libre, se
+vuelve a aplicar lo que se hubiera pedido.
 
 ## Compilación y publicación
 
@@ -316,7 +341,9 @@ de `DeviceServices`, sin tocar los canales de plataforma, el aviso háptico del
 nivel (que no se repite ni se dispara solo al arrancar), el botón que alterna
 la brújula y el espejo en las dos posturas y el que alterna las dos cámaras
 —con un doble de `SelfieCamera`, que comprueba también que la cámara se suelta
-al salir de la vista y que no se reabre al cambiar de postura— y las
+al salir de la vista y que no se reabre al cambiar de postura—, la linterna con
+el espejo en la cámara principal —que pasa por la cámara mientras el canal
+nativo la da por ocupada, y que vuelve al canal con su nivel al soltarla— y las
 traducciones, incluida la vuelta al inglés con un idioma sin traducir.
 
 `PadGeometry` está aparte del widget justamente para eso: toda la geometría es
