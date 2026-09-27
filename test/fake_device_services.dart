@@ -15,6 +15,14 @@ class FakeDeviceServices implements DeviceServices {
   bool failOnTorch = false;
   bool failOnBrightness = false;
 
+  /// La cámara del flash está abierta, así que el flash no se puede tocar
+  /// desde el canal nativo. Como en Android, la petición falla pero queda
+  /// anotada en [wantedTorch].
+  bool Function() flashBusy = () => false;
+
+  /// Último estado pedido al canal nativo, se haya podido aplicar o no.
+  bool? wantedTorch;
+
   bool torchOn = false;
   bool keepScreenOn = false;
 
@@ -52,6 +60,8 @@ class FakeDeviceServices implements DeviceServices {
   }) async {
     calls.add('setTorch($enabled, ${intensity.toStringAsFixed(2)})');
     if (failOnTorch) throw Exception('flash no disponible');
+    wantedTorch = enabled;
+    if (flashBusy()) throw Exception('cámara del flash en uso');
     torchOn = enabled;
     torchIntensity = enabled ? intensity : null;
     if (enabled) torchLevels.add(intensity);

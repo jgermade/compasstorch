@@ -280,6 +280,40 @@ void main() {
       expect(camera.lens, SelfieCameraLens.front);
     });
 
+    testWidgets('con el espejo en la cámara principal la linterna funciona', (
+      tester,
+    ) async {
+      // Como en Android: con la principal abierta, el canal nativo no puede
+      // tocar el flash.
+      services.flashBusy = () => camera.holdsFlash;
+      await pumpApp(tester);
+      orientation.emit(tilt: 80);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('viewToggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('lensToggle')));
+      await tester.pumpAndSettle();
+      expect(camera.lens, SelfieCameraLens.back);
+
+      await tester.tap(find.byKey(const ValueKey('torchChip')));
+      await tester.pumpAndSettle();
+      expect(camera.torchOn, isTrue);
+      expect(
+        tester.widget<ControlPad>(find.byType(ControlPad)).torchOn,
+        isTrue,
+      );
+      expect(find.byType(SnackBar), findsNothing);
+
+      // Al volver a la frontal la linterna sigue encendida, ya por su canal.
+      await tester.tap(find.byKey(const ValueKey('lensToggle')));
+      await tester.pumpAndSettle();
+      expect(services.torchOn, isTrue);
+      expect(
+        tester.widget<ControlPad>(find.byType(ControlPad)).torchOn,
+        isTrue,
+      );
+    });
+
     testWidgets('con una sola cámara no aparece el botón de alternar', (
       tester,
     ) async {

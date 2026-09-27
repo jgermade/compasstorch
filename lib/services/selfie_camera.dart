@@ -53,6 +53,17 @@ abstract class SelfieCamera implements Listenable {
   /// otra; si no, solo deja elegida cuál se abrirá.
   Future<void> switchLens();
 
+  /// La cámara principal, que es la que lleva el flash, está abierta o
+  /// terminando de cerrarse. Mientras tanto Android da el flash por ocupado y
+  /// no deja manejarlo desde fuera: hay que pasar por [setTorch]. Vuelve a
+  /// `false` cuando la cámara ya se ha soltado del todo.
+  bool get holdsFlash;
+
+  /// Enciende o apaga el flash a través de la cámara abierta, siempre a toda
+  /// potencia: el plugin no sabe graduarlo. Falla si la principal no está
+  /// abierta, también mientras se cierra.
+  Future<void> setTorch({required bool enabled});
+
   /// La imagen en directo, o `null` mientras no esté lista.
   Widget? buildPreview(BuildContext context);
 
@@ -82,6 +93,12 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
   /// de pisar a la buena.
   int _opening = 0;
 
+  /// La cámara principal, desde que se abre hasta que se termina de soltar.
+  CameraController? _flashHolder;
+
+  /// La cámara a través de la que se ha encendido el flash, si hay alguna.
+  CameraController? _torchThrough;
+
   bool _disposed = false;
 
   @override
@@ -100,6 +117,9 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
   }
 
   @override
+  bool get holdsFlash => _flashHolder != null;
+
+  @override
   Future<void> start() async {
     if (_wanted) return;
     _wanted = true;
@@ -113,7 +133,7 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
     final controller = _controller;
     _controller = null;
     _moveTo(SelfieCameraStatus.off);
-    await controller?.dispose();
+    await _release(controller);
   }
 
   @override
@@ -129,6 +149,19 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
   }
 
   @override
+  Future<void> setTorch({required bool enabled}) async {
+    final controller = _controller;
+    if (controller == null || !identical(controller, _flashHolder)) {
+      throw StateError('La cámara abierta no lleva el flash.');
+    }
+    // Se anota antes de pedirlo: si la cámara se suelta mientras tanto,
+    // [_release] tiene que saber que hay que apagarlo.
+    if (enabled) _torchThrough = controller;
+    await controller.setFlashMode(enabled ? FlashMode.torch : FlashMode.off);
+    if (!enabled && identical(_torchThrough, controller)) _torchThrough = null;
+  }
+
+  @override
   Widget? buildPreview(BuildContext context) {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return null;
@@ -140,6 +173,7 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
     _disposed = true;
     _wanted = false;
     _opening++;
+    _flashHolder = null;
     final controller = _controller;
     _controller = null;
     controller?.dispose();
@@ -153,7 +187,7 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
     final previous = _controller;
     _controller = null;
     _moveTo(SelfieCameraStatus.opening);
-    await previous?.dispose();
+    await _release(previous);
 
     try {
       final cameras = _cameras ??= await availableCameras();
@@ -185,6 +219,9 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
         return;
       }
       _controller = controller;
+      if (controller.description.lensDirection == CameraLensDirection.back) {
+        _flashHolder = controller;
+      }
       _moveTo(SelfieCameraStatus.ready);
     } on CameraException catch (error) {
       _finish(
@@ -197,6 +234,29 @@ class PluginSelfieCamera extends ChangeNotifier implements SelfieCamera {
       // Sin plugin de cámara (o sin cámara ninguna) no hay nada que enseñar,
       // pero la aplicación sigue funcionando: se avisa y ya está.
       _finish(attempt, SelfieCameraStatus.unavailable);
+    }
+  }
+
+  /// Suelta [controller]. Si el flash se había encendido a través de ella, se
+  /// apaga antes por el mismo camino: el plugin de Android recuerda que lo
+  /// encendió aunque se cierre la cámara, y en la siguiente apertura daría por
+  /// hecho que ya está encendido y no lo encendería.
+  Future<void> _release(CameraController? controller) async {
+    if (controller == null) return;
+    if (identical(controller, _torchThrough)) {
+      _torchThrough = null;
+      try {
+        await controller.setFlashMode(FlashMode.off);
+      } catch (_) {
+        // Se va a cerrar de todas formas, y al cerrarse se apaga el flash.
+      }
+    }
+    await controller.dispose();
+    if (identical(controller, _flashHolder)) {
+      // Hasta aquí no se avisa: quien vuelva a encender el flash por otro
+      // camino tiene que esperar a que la cámara lo haya soltado.
+      _flashHolder = null;
+      _announce();
     }
   }
 

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 
 /// Doble de [SelfieCamera] para los tests: cuenta las veces que se abre, se
 /// suelta y se cambia de cámara, y permite simular que falta el permiso, que
-/// no hay cámara o que solo hay una, sin tocar el plugin de plataforma.
+/// no hay cámara o que solo hay una, sin tocar el plugin de plataforma. Con la
+/// principal abierta se queda con el flash, como la de verdad.
 class FakeSelfieCamera extends ChangeNotifier implements SelfieCamera {
   /// Estado al que llega al abrirse. Cambiarlo simula un permiso denegado o
   /// un dispositivo sin cámara frontal.
@@ -16,6 +17,13 @@ class FakeSelfieCamera extends ChangeNotifier implements SelfieCamera {
   int starts = 0;
   int stops = 0;
   int switches = 0;
+
+  /// El flash está encendido a través de esta cámara. Se apaga al soltarla o
+  /// al cambiar a la frontal, como pasa al cerrar la cámara de verdad.
+  bool torchOn = false;
+
+  /// Veces que se ha manejado el flash a través de la cámara.
+  int torchCalls = 0;
 
   SelfieCameraStatus _status = SelfieCameraStatus.off;
   SelfieCameraLens _lens = SelfieCameraLens.front;
@@ -30,8 +38,20 @@ class FakeSelfieCamera extends ChangeNotifier implements SelfieCamera {
   bool get canSwitchLens => bothLenses;
 
   @override
+  bool get holdsFlash =>
+      _status == SelfieCameraStatus.ready && _lens == SelfieCameraLens.back;
+
+  @override
+  Future<void> setTorch({required bool enabled}) async {
+    if (!holdsFlash) throw StateError('la cámara abierta no lleva el flash');
+    torchCalls++;
+    torchOn = enabled;
+  }
+
+  @override
   Future<void> switchLens() async {
     switches++;
+    torchOn = false;
     _lens = _lens == SelfieCameraLens.front
         ? SelfieCameraLens.back
         : SelfieCameraLens.front;
@@ -47,6 +67,7 @@ class FakeSelfieCamera extends ChangeNotifier implements SelfieCamera {
   @override
   Future<void> stop() async {
     stops++;
+    torchOn = false;
     _moveTo(SelfieCameraStatus.off);
   }
 

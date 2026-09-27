@@ -3,6 +3,7 @@ import 'package:compasstorch/services/haptics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_device_services.dart';
+import 'fake_selfie_camera.dart';
 
 void main() {
   late FakeDeviceServices services;
@@ -361,6 +362,138 @@ void main() {
         expect(services.screenBrightness, closeTo(chosen, 0.001));
       },
     );
+  });
+
+  group('linterna con el espejo en la cámara principal', () {
+    late FakeSelfieCamera camera;
+
+    setUp(() {
+      camera = FakeSelfieCamera();
+      // Como en Android: con la principal abierta, el canal nativo no puede
+      // tocar el flash.
+      services.flashBusy = () => camera.holdsFlash;
+      controller = ControlsController(services, camera: camera);
+    });
+
+    Future<void> openBackCamera() async {
+      await camera.switchLens();
+      await camera.start();
+    }
+
+    /// Deja correr lo que el controlador lanza por su cuenta al abrirse o
+    /// soltarse la cámara.
+    Future<void> settle() => Future<void>.delayed(Duration.zero);
+
+    test('se enciende y se apaga a través de la cámara', () async {
+      await openBackCamera();
+
+      await controller.setTorch(enabled: true);
+      expect(controller.torchOn, isTrue);
+      expect(camera.torchOn, isTrue);
+      expect(controller.takeError(), isNull);
+
+      await controller.toggleTorch();
+      expect(controller.torchOn, isFalse);
+      expect(camera.torchOn, isFalse);
+      expect(controller.takeError(), isNull);
+      expect(services.powerHaptics, [HapticCue.turnedOn, HapticCue.turnedOff]);
+    });
+
+    test('el canal nativo se queda con lo pedido aunque falle', () async {
+      await openBackCamera();
+
+      await controller.setTorch(enabled: true, intensity: 0.4);
+
+      // Es lo que aplicará en cuanto la cámara quede libre.
+      expect(services.wantedTorch, isTrue);
+      expect(services.calls, contains('setTorch(true, 0.40)'));
+    });
+
+    test('con la frontal el flash sigue yendo por el canal nativo', () async {
+      await camera.start();
+
+      await controller.setTorch(enabled: true, intensity: 0.4);
+
+      expect(services.torchOn, isTrue);
+      expect(services.torchIntensity, closeTo(0.4, 0.001));
+      expect(camera.torchCalls, 0);
+    });
+
+    test('abrir la principal con la linterna encendida no la apaga', () async {
+      await controller.setTorch(enabled: true);
+
+      await openBackCamera();
+      await settle();
+
+      expect(camera.torchOn, isTrue);
+      expect(controller.torchOn, isTrue);
+    });
+
+    test('al soltar la cámara vuelve al canal nativo con su nivel', () async {
+      await openBackCamera();
+      await controller.setTorch(enabled: true, intensity: 0.4);
+
+      await camera.stop();
+      await settle();
+
+      expect(services.torchOn, isTrue);
+      expect(services.torchIntensity, closeTo(0.4, 0.001));
+      // Sin vibrar: para quien la usa, la linterna no ha cambiado.
+      expect(services.powerHaptics, [HapticCue.turnedOn]);
+    });
+
+    test('pasar a la frontal también la devuelve al canal nativo', () async {
+      await openBackCamera();
+      await controller.setTorch(enabled: true);
+
+      await camera.switchLens();
+      await settle();
+
+      expect(camera.torchOn, isFalse);
+      expect(services.torchOn, isTrue);
+    });
+
+    test(
+      'con la linterna apagada, abrir o soltar la cámara no la toca',
+      () async {
+        await openBackCamera();
+        await camera.stop();
+        await settle();
+
+        expect(
+          services.calls.where((call) => call.startsWith('setTorch')),
+          isEmpty,
+        );
+        expect(camera.torchCalls, 0);
+      },
+    );
+
+    test(
+      'si no hay por dónde encenderla, el canal nativo vuelve atrás',
+      () async {
+        // Ocupado sin que el espejo tenga la cámara: otra aplicación, o la
+        // principal todavía abriéndose.
+        services.flashBusy = () => true;
+
+        await controller.setTorch(enabled: true);
+
+        expect(controller.torchOn, isFalse);
+        expect(controller.takeError(), ControlsError.torchUnavailable);
+        expect(services.powerHaptics, isEmpty);
+        // Si no, la encendería por su cuenta al quedar libre la cámara.
+        expect(services.wantedTorch, isFalse);
+      },
+    );
+
+    test('al salir se apaga a través de la cámara', () async {
+      await openBackCamera();
+      await controller.setTorch(enabled: true);
+
+      await controller.restoreDefaults();
+
+      expect(camera.torchOn, isFalse);
+      expect(services.wantedTorch, isFalse);
+    });
   });
 
   test('al salir se apaga el flash y se restauran los ajustes', () async {

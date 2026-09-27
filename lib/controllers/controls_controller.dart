@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/device_services.dart';
 import '../services/haptics.dart';
+import '../services/selfie_camera.dart';
 import '../services/torch_channel.dart';
 
 /// Manda al canal nativo el último valor pedido, sin encolar los intermedios.
@@ -55,15 +56,21 @@ enum ControlsError {
 ///   lo permita.
 /// - Eje horizontal: el "modo faro", que pasa la interfaz a tema claro, sube el
 ///   brillo y mantiene la pantalla encendida.
+///
+/// Con [camera] la linterna sigue funcionando mientras el espejo tiene abierta
+/// la cámara principal, que es la del flash: ver [SelfieCamera.holdsFlash].
 class ControlsController extends ChangeNotifier {
-  ControlsController(this._services) {
+  ControlsController(this._services, {SelfieCamera? camera})
+    : _camera = camera,
+      _cameraHoldsFlash = camera?.holdsFlash ?? false {
     _torchSender = _LatestValueSender(
-      (value) => _services.setTorch(enabled: true, intensity: value),
+      (value) => _sendTorch(enabled: true, intensity: value),
     );
     _brightnessSender = _LatestValueSender(
       (value) =>
           _services.setBrightness(enabled: true, level: _screenFor(value)),
     );
+    camera?.addListener(_onCameraChanged);
   }
 
   /// Brillo mínimo del modo faro. No baja de aquí a propósito: con la pantalla
@@ -71,6 +78,12 @@ class ControlsController extends ChangeNotifier {
   static const double minBeaconBrightness = 0.3;
 
   final DeviceServices _services;
+
+  /// El espejo. Con la cámara principal abierta, el flash es suyo.
+  final SelfieCamera? _camera;
+
+  /// Lo que valía [SelfieCamera.holdsFlash] la última vez que se miró.
+  bool _cameraHoldsFlash;
 
   late final _LatestValueSender _torchSender;
   late final _LatestValueSender _brightnessSender;
@@ -150,18 +163,33 @@ class ControlsController extends ChangeNotifier {
     _torchOn = enabled;
     _notify();
 
+    var sent = false;
     try {
       await loadTorchCapabilities();
       if (enabled && !_capabilities.available) {
         throw StateError('sin flash');
       }
-      await _services.setTorch(enabled: enabled, intensity: _torchIntensity);
+      sent = true;
+      await _sendTorch(enabled: enabled, intensity: _torchIntensity);
     } catch (error) {
       _torchOn = !enabled;
       _error = enabled
           ? ControlsError.torchUnavailable
           : ControlsError.torchOffFailed;
       _notify();
+      if (sent) {
+        // El lado nativo se queda con lo último que se le pide, para aplicarlo
+        // en cuanto la cámara del flash quede libre: se le devuelve el estado
+        // de antes, o haría más tarde lo que aquí se ha dado por fallido.
+        try {
+          await _services.setTorch(
+            enabled: _torchOn,
+            intensity: _torchIntensity,
+          );
+        } catch (error) {
+          // Sigue ocupado: queda anotado igualmente.
+        }
+      }
       return;
     }
 
@@ -284,7 +312,7 @@ class ControlsController extends ChangeNotifier {
   Future<void> restoreDefaults() async {
     try {
       if (_torchOn) {
-        await _services.setTorch(enabled: false, intensity: _torchIntensity);
+        await _sendTorch(enabled: false, intensity: _torchIntensity);
       }
       if (_beaconOn) {
         await _services.setBrightness(enabled: false, level: 1);
@@ -295,6 +323,37 @@ class ControlsController extends ChangeNotifier {
     }
     _torchOn = false;
     _beaconOn = false;
+  }
+
+  /// Manda el estado de la linterna al dispositivo.
+  ///
+  /// Va siempre primero al canal nativo, que se queda con lo pedido aunque no
+  /// pueda aplicarlo. Si falla porque el espejo tiene abierta la cámara del
+  /// flash —en Android no se puede tocar desde fuera mientras tanto—, se
+  /// enciende o se apaga a través de esa misma cámara, sin graduar.
+  Future<void> _sendTorch({
+    required bool enabled,
+    required double intensity,
+  }) async {
+    try {
+      await _services.setTorch(enabled: enabled, intensity: intensity);
+    } catch (error) {
+      final camera = _camera;
+      if (camera == null || !camera.holdsFlash) rethrow;
+      await camera.setTorch(enabled: enabled);
+    }
+  }
+
+  /// Abrir o soltar la cámara del flash lo apaga sin avisar. Si la linterna
+  /// estaba encendida se vuelve a encender por el camino que toque ahora, para
+  /// que siga como dice la barra.
+  void _onCameraChanged() {
+    final holds = _camera!.holdsFlash;
+    if (holds == _cameraHoldsFlash) return;
+    _cameraHoldsFlash = holds;
+    // Si la cámara todavía no se ha cerrado del todo, el canal nativo lo
+    // aplicará él solo en cuanto se cierre.
+    if (_torchOn) _torchSender.submit(_torchIntensity);
   }
 
   /// Brillo real de la pantalla para un nivel del mando.
@@ -326,6 +385,7 @@ class ControlsController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _camera?.removeListener(_onCameraChanged);
     super.dispose();
   }
 }
